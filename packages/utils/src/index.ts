@@ -63,6 +63,8 @@ export function computeSha256(content: string | Buffer): string {
   return crypto.createHash('sha256').update(content).digest('hex');
 }
 
+export const sha256Hash = computeSha256;
+
 export function generateUuid(): string {
   return crypto.randomUUID();
 }

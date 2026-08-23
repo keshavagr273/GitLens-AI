@@ -18,6 +18,7 @@
     "@gitlens/graph-core": "*",
     "@gitlens/ingestion": "*",
     "@gitlens/parser-core": "*",
+    "@gitlens/rag-core": "*",
     "@gitlens/shared-types": "*",
     "@gitlens/utils": "*",
     "fastify": "^4.26.2",

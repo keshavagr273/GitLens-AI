@@ -9,6 +9,7 @@ import {
   Technology,
   RequestFlowTrace,
   AnalysisStage,
+  CodeChunk,
 } from '@gitlens/shared-types';
 import { generateUuid } from '@gitlens/utils';
 import {
@@ -230,6 +231,46 @@ export class DatabaseStore {
   // --- Technologies ---
   async getTechnologiesForAnalysis(analysisId: string): Promise<Technology[]> {
     return this.technologies.get(analysisId) || this.technologies.get('analysis-fastify-001') || [];
+  }
+
+  // --- Chunks ---
+  async getChunksForAnalysis(analysisId: string): Promise<CodeChunk[]> {
+    const files = await this.getFilesForAnalysis(analysisId);
+    const symbols = await this.getSymbolsForAnalysis(analysisId);
+    const chunks: CodeChunk[] = [];
+
+    for (const f of files) {
+      const content = f.content || '';
+      const fileSyms = symbols.filter((s) => s.fileId === f.id);
+      if (fileSyms.length > 0) {
+        for (const s of fileSyms) {
+          chunks.push({
+            id: `chunk-${f.id}-${s.id}`,
+            analysisId,
+            fileId: f.id,
+            filePath: f.path,
+            symbolId: s.id,
+            symbolName: s.name,
+            content: `// File: ${f.path} | Symbol: ${s.name} (${s.kind})\n${content.slice(0, 500)}`,
+            startLine: s.startLine,
+            endLine: s.endLine,
+            contentHash: f.contentHash,
+          });
+        }
+      } else {
+        chunks.push({
+          id: `chunk-${f.id}-full`,
+          analysisId,
+          fileId: f.id,
+          filePath: f.path,
+          content: `// File: ${f.path}\n${content.slice(0, 500)}`,
+          startLine: 1,
+          endLine: Math.min(50, content.split('\n').length),
+          contentHash: f.contentHash,
+        });
+      }
+    }
+    return chunks;
   }
 }
 

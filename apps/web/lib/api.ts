@@ -108,3 +108,18 @@ export async function sendChatMessage(repoId: string, message: string): Promise<
   if (!res.ok) throw new Error('Chat failed');
   return res.json();
 }
+
+export async function searchCodebase(repoId: string, query: string, topK = 5): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/repositories/${repoId}/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, topK }),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results || [];
+  } catch {
+    return [];
+  }
+}
