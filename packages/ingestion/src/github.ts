@@ -167,6 +167,64 @@ export class GitHubClient {
     return allBlobs;
   }
 
+  async fetchBlobContent(owner: string, repo: string, branch: string, filePath: string): Promise<string> {
+    try {
+      const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`;
+      const headers: Record<string, string> = {
+        'User-Agent': 'GitLens-AI-Ingestion-Engine/1.0',
+      };
+      if (this.token && this.token.trim().length > 0) {
+        headers.Authorization = `Bearer ${this.token.trim()}`;
+      }
+
+      const res = await fetch(rawUrl, { headers });
+      if (res.ok) {
+        return await res.text();
+      }
+
+      // Fallback to GitHub contents API
+      const apiData = await this.request<any>(`/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`);
+      if (apiData && apiData.content && apiData.encoding === 'base64') {
+        return Buffer.from(apiData.content, 'base64').toString('utf-8');
+      }
+      return '';
+    } catch (err: any) {
+      console.warn(`Failed to fetch blob for ${owner}/${repo}/${filePath}:`, err.message);
+      return '';
+    }
+  }
+
+  async fetchFilesBatch(
+    owner: string,
+    repo: string,
+    branch: string,
+    filePaths: string[],
+    concurrency = 15,
+    onProgress?: (completed: number, total: number) => void
+  ): Promise<Map<string, string>> {
+    const results = new Map<string, string>();
+    const total = filePaths.length;
+    let completed = 0;
+
+    const queue = [...filePaths];
+    const workers = Array.from({ length: Math.min(concurrency, total) }, async () => {
+      while (queue.length > 0) {
+        const filePath = queue.shift();
+        if (!filePath) break;
+
+        const content = await this.fetchBlobContent(owner, repo, branch, filePath);
+        if (content) {
+          results.set(filePath, content);
+        }
+        completed++;
+        if (onProgress) onProgress(completed, total);
+      }
+    });
+
+    await Promise.all(workers);
+    return results;
+  }
+
   // Fallback tree for offline / mock testing
   private generateFallbackTree(owner: string, repo: string): GitTreeEntry[] {
     return [

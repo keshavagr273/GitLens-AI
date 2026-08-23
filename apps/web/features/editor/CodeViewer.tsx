@@ -18,6 +18,7 @@ interface Props {
   highlightedLines: [number, number] | null;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  height?: number;
 }
 
 export function CodeViewer({
@@ -25,6 +26,7 @@ export function CodeViewer({
   highlightedLines,
   isExpanded,
   onToggleExpand,
+  height,
 }: Props) {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
@@ -83,9 +85,8 @@ export function CodeViewer({
 
   return (
     <div
-      className={`border-t border-slate-800/80 glass-panel flex flex-col transition-all duration-300 ${
-        isExpanded ? 'h-[500px]' : 'h-64'
-      }`}
+      style={{ height: isExpanded ? '520px' : `${height || 260}px` }}
+      className="border-t border-slate-800/80 glass-panel flex flex-col shrink-0 overflow-hidden"
     >
       {/* Code Viewer Breadcrumb Header */}
       <div className="h-9 px-4 border-b border-slate-800/80 bg-slate-900/90 flex items-center justify-between text-xs shrink-0">

@@ -18,9 +18,11 @@
     "lint": "echo 'No lint specified'"
   },
   "dependencies": {
+    "@gitlens/config": "*",
     "@gitlens/shared-types": "*",
     "@gitlens/utils": "*",
-    "@gitlens/config": "*"
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

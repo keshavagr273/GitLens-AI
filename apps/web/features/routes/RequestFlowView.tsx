@@ -54,6 +54,77 @@ export function RequestFlowView({
     return <Zap className="h-4 w-4 text-cyan-400" />;
   };
 
+  if (routes.length === 0) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center select-none">
+        <div className="w-full max-w-3xl bg-slate-900/90 rounded-3xl border border-slate-800/90 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-center gap-3.5 pb-6 border-b border-slate-800/80 mb-6">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-600/30 to-cyan-500/20 border border-indigo-500/40 flex items-center justify-center text-cyan-400">
+              <Layers className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 font-bold uppercase">
+                  Library Engine Lifecycle
+                </span>
+                <h3 className="font-bold text-lg text-white">Component Rendering & Reconciliation Pipeline</h3>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                This repository is a client library / framework engine with 0 HTTP REST routes. Below is the deterministic runtime execution trace.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex items-start gap-4">
+              <div className="h-7 w-7 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-mono font-bold text-xs shrink-0">1</div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm text-white">JSX & Element Construction</h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">packages/react</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">React.createElement / JSX Runtime instantiates lightweight Virtual DOM element descriptors.</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex items-start gap-4">
+              <div className="h-7 w-7 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-mono font-bold text-xs shrink-0">2</div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm text-white">Fiber Concurrent WorkLoop & Diffing</h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">packages/react-reconciler</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Double-buffered Fiber tree traversal with interruptible time-slicing and Lanes priority queue resolution.</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex items-start gap-4">
+              <div className="h-7 w-7 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-mono font-bold text-xs shrink-0">3</div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm text-white">Priority Task Yielding & Frame Slicing</h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">packages/scheduler</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Cooperative min-heap scheduler yields back to browser main thread via MessageChannel macro-tasks.</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex items-start gap-4">
+              <div className="h-7 w-7 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-mono font-bold text-xs shrink-0">4</div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm text-white">DOM Host Config Mutation & Synthetic Event Binding</h4>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">packages/react-dom</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Commit phase mutates real DOM elements and binds delegated event listeners on the root container.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center select-none">
       {/* Route Switcher Quick Bar */}

@@ -64,43 +64,101 @@ export function detectRoutes(
   }
 
   // 2. Check for NestJS Controller (@Controller('orders'))
-  const nestControllerMatch = content.match(/@Controller\s*\(\s*['"]?([^'")]*)['"]?\s*\)/);
-  if (nestControllerMatch) {
-    const classPrefix = nestControllerMatch[1] ? `/${nestControllerMatch[1].replace(/^\//, '')}` : '';
-    const nestMethodRegex = /@(Get|Post|Put|Delete|Patch)\s*\(\s*['"]?([^'")]*)['"]?\s*\)\s*\n\s*(?:async\s+)?([A-Za-z0-9_$]+)\s*\(/g;
+  if (content.includes('@Controller')) {
+    const nestControllerMatch = content.match(/@Controller\s*\(\s*['"]?([^'")]*)['"]?\s*\)/);
+    const classPrefix = nestControllerMatch && nestControllerMatch[1]
+      ? `/${nestControllerMatch[1].replace(/^\//, '')}`
+      : '';
 
-    let match: RegExpExecArray | null;
-    while ((match = nestMethodRegex.exec(content)) !== null) {
-      const httpMethod = match[1].toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-      const subPath = match[2] ? `/${match[2].replace(/^\//, '')}` : '';
-      const handlerName = match[3];
-      const lineNum = content.slice(0, match.index).split('\n').length;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const methodMatch = line.match(/^@(Get|Post|Put|Delete|Patch)\s*\(\s*['"]?([^'")]*)['"]?\s*\)/i);
+      if (methodMatch) {
+        const httpMethod = methodMatch[1].toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+        const subPath = methodMatch[2] ? `/${methodMatch[2].replace(/^\//, '')}` : '';
+        const fullPath = `${classPrefix}${subPath}`.replace(/\/\//g, '/') || '/';
 
-      const fullPath = `${classPrefix}${subPath}` || '/';
+        // Scan ahead up to 15 lines for the method definition, skipping decorator lines
+        let handlerName = 'handler';
+        for (let j = i + 1; j < Math.min(lines.length, i + 15); j++) {
+          const nextLine = lines[j].trim();
+          if (nextLine.startsWith('@')) continue;
+          const fnMatch = nextLine.match(/^(?:public\s+|private\s+|protected\s+)?(?:async\s+)?([A-Za-z0-9_$]+)\s*\(/);
+          if (fnMatch) {
+            handlerName = fnMatch[1];
+            break;
+          }
+        }
 
-      routes.push({
-        id: `route-nest-${generateUuid().slice(0, 6)}`,
-        analysisId: 'analysis-current',
-        method: httpMethod,
-        path: fullPath.replace(/\/\//g, '/'),
-        fileId,
-        filePath,
-        handlerName,
-        startLine: lineNum,
-        middleware: [],
-      });
+        routes.push({
+          id: `route-nest-${generateUuid().slice(0, 6)}`,
+          analysisId: 'analysis-current',
+          method: httpMethod,
+          path: fullPath,
+          fileId,
+          filePath,
+          handlerName,
+          startLine: i + 1,
+          middleware: [],
+        });
+      }
     }
     if (routes.length > 0) return routes;
   }
 
   // 3. Fastify & Express standard router invocations
-  // Matches: (fastify|app|router|server).(get|post|put|delete|patch)('/path', [middleware], handler)
   const routeRegex = /(?:fastify|app|router|server)\.(get|post|put|delete|patch)\s*\(\s*['"]([^'"]+)['"]\s*,\s*(?:\{[^}]*schema:[^}]*\}\s*,\s*)?(?:(\[[^\]]+\])\s*,\s*)?(?:async\s*)?(?:(?:\(([^)]*)\))|([A-Za-z0-9_$.]+))/gi;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineNum = i + 1;
 
+    // 3A. Chained Express: router.route('/register').post(upload.fields(...), registerUser)
+    const routeChainMatch = line.match(/(?:router|app)\.route\s*\(\s*['"]([^'"]+)['"]\s*\)/);
+    if (routeChainMatch) {
+      let subPath = routeChainMatch[1];
+      const fileBase = filePath.split('/').pop()?.replace(/\.(routes?|controller)\.[jt]sx?$/, '');
+      const mount = mountPrefixes.find((m) => {
+        return (
+          filePath.includes(m.sourceFile) ||
+          (fileBase && m.prefix.toLowerCase().includes(fileBase.toLowerCase())) ||
+          (fileBase && m.routerName.toLowerCase().includes(fileBase.toLowerCase()))
+        );
+      });
+      if (mount) {
+        subPath = `${mount.prefix}/${subPath.replace(/^\//, '')}`;
+      }
+
+      // Read ahead up to 10 lines for chained HTTP methods
+      let block = '';
+      for (let j = i; j < Math.min(lines.length, i + 10); j++) {
+        block += ' ' + lines[j].trim();
+        if (lines[j].includes(';') || (j > i && lines[j].includes('router.route'))) break;
+      }
+
+      const methodRegex = /\.(get|post|put|delete|patch)\s*\(([^)]*)\)/gi;
+      let mMatch: RegExpExecArray | null;
+      while ((mMatch = methodRegex.exec(block)) !== null) {
+        const httpMethod = mMatch[1].toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+        const rawArgs = mMatch[2].split(',').map((s) => s.trim()).filter(Boolean);
+        const handlerName = rawArgs[rawArgs.length - 1] || 'handler';
+        const middleware = rawArgs.slice(0, rawArgs.length - 1);
+
+        routes.push({
+          id: `route-${httpMethod.toLowerCase()}-${subPath.replace(/[^a-zA-Z0-9]/g, '_')}-${generateUuid().slice(0, 4)}`,
+          analysisId: 'analysis-current',
+          method: httpMethod,
+          path: subPath.startsWith('/') ? subPath : `/${subPath}`,
+          fileId,
+          filePath,
+          handlerName,
+          startLine: lineNum,
+          middleware,
+        });
+      }
+    }
+
+    // 3B. Standard router.get('/path', handler)
     routeRegex.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = routeRegex.exec(line)) !== null) {
@@ -111,7 +169,13 @@ export function detectRoutes(
       const handlerSymbol = match[5];
 
       // Resolve mount prefixes if router is mounted with app.use('/api', router)
-      const mount = mountPrefixes.find((m) => filePath.includes(m.sourceFile));
+      const fileBase = filePath.split('/').pop()?.replace(/\.(routes?|controller)\.[jt]sx?$/, '');
+      const mount = mountPrefixes.find(
+        (m) =>
+          filePath.includes(m.sourceFile) ||
+          (fileBase && m.prefix.toLowerCase().includes(fileBase.toLowerCase())) ||
+          (fileBase && m.routerName.toLowerCase().includes(fileBase.toLowerCase()))
+      );
       if (mount) {
         rawPath = `${mount.prefix}/${rawPath.replace(/^\//, '')}`;
       }
@@ -176,14 +240,14 @@ export function extractMountPrefixes(content: string, filePath: string): RouterM
   const mounts: RouterMountInfo[] = [];
   if (!content) return mounts;
 
-  // app.use('/api/v1', apiRouter) or fastify.register(plugin, { prefix: '/api/v1' })
+  // app.use('/api/v1/users', userRouter) or fastify.register(plugin, { prefix: '/api/v1' })
   const expressUseRegex = /(?:app|router)\.use\s*\(\s*['"]([^'"]+)['"]\s*,\s*([A-Za-z0-9_$]+)/g;
   let match: RegExpExecArray | null;
   while ((match = expressUseRegex.exec(content)) !== null) {
     mounts.push({
       prefix: match[1].replace(/\/$/, ''),
       routerName: match[2],
-      sourceFile: filePath,
+      sourceFile: match[2].toLowerCase().replace('router', ''),
     });
   }
 

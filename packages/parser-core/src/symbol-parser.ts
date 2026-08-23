@@ -169,8 +169,8 @@ export function parseSymbols(fileId: string, content: string, language = 'typesc
         continue;
       }
 
-      // Check for arrow function / constant declarations (e.g. export const authRoutes = async (...) => ...)
-      const arrowRegex = /(?:export\s+)?(?:const|let)\s+([A-Za-z0-9_$]+)\s*(?::\s*[^=]+)?\s*=\s*(?:async\s*)?(?:\(([^)]*)\)|[A-Za-z0-9_$]+)\s*=>/;
+      // Check for arrow function / wrapped handlers (e.g. const registerUser = asyncHandler(async (req, res) => ...))
+      const arrowRegex = /(?:export\s+)?(?:const|let)\s+([A-Za-z0-9_$]+)\s*(?::\s*[^=]+)?\s*=\s*(?:asyncHandler|catchAsync|wrapper)?\s*\(?\s*(?:async\s*)?(?:function\s*)?(?:\(([^)]*)\)|[A-Za-z0-9_$]+)?\s*=>/;
       const arrowMatch = arrowRegex.exec(line);
       if (arrowMatch) {
         const varName = arrowMatch[1];
@@ -193,6 +193,29 @@ export function parseSymbols(fileId: string, content: string, language = 'typesc
             cyclomaticComplexity: calculateComplexity(arrowBody),
             loc: endLine - startLine + 1,
             parameterCount: extractParameterCount(paramStr),
+          },
+        });
+        continue;
+      }
+
+      // Check for Mongoose models (e.g. export const User = mongoose.model("User", userSchema))
+      const modelRegex = /(?:export\s+)?(?:const|let)\s+([A-Za-z0-9_$]+)\s*=\s*(?:mongoose\.)?model\s*\(\s*['"]([^'"]+)['"]/;
+      const modelMatch = modelRegex.exec(line);
+      if (modelMatch) {
+        const modelName = modelMatch[1];
+        symbols.push({
+          id: `sym-model-${modelName}-${generateUuid().slice(0, 6)}`,
+          fileId,
+          name: modelName,
+          kind: 'class',
+          startLine: lineNum,
+          endLine: lineNum,
+          startColumn: line.indexOf(modelName) + 1,
+          endColumn: line.length + 1,
+          metrics: {
+            cyclomaticComplexity: 1,
+            loc: 1,
+            parameterCount: 0,
           },
         });
         continue;

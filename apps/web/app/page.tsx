@@ -16,8 +16,9 @@ import {
   Network,
   Database,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
-import { ingestRepository, fetchRepositories } from '@/lib/api';
+import { ingestRepository, fetchRepositories, deleteRepository } from '@/lib/api';
 import { Repository } from '@gitlens/shared-types';
 import { AnalysisProgressModal } from '@/features/repository/AnalysisProgressModal';
 
@@ -73,6 +74,21 @@ export default function LandingPage() {
       router.push(`/workspace/${activeRepoId}`);
     }
   };
+
+  const handleDeleteRepo = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const confirmed = window.confirm('Remove this repository from workspace list?');
+    if (!confirmed) return;
+    const ok = await deleteRepository(id);
+    if (ok) {
+      setRecentRepos((prev) => prev.filter((r) => r.id !== id));
+    }
+  };
+
+  // Distinct list by owner/name
+  const uniqueRepos = Array.from(
+    new Map(recentRepos.map((r) => [`${r.owner.toLowerCase()}/${r.name.toLowerCase()}`, r])).values()
+  );
 
   return (
     <div className="relative min-h-screen flex flex-col justify-between">
@@ -211,38 +227,84 @@ export default function LandingPage() {
         </div>
 
         {/* Recent Repositories */}
-        {recentRepos.length > 0 && (
+        {uniqueRepos.length > 0 && (
           <div className="w-full max-w-4xl text-left">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-semibold text-slate-300">Ready Repositories</h4>
-              <span className="text-xs text-slate-500">{recentRepos.length} indexed</span>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-slate-200 tracking-wide uppercase">Indexed Repositories</h4>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-[11px] font-mono text-indigo-300">
+                  {uniqueRepos.length} ready
+                </span>
+              </div>
+              <span className="text-xs text-slate-500">Click any card to open interactive workspace</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {recentRepos.map((repo) => (
-                <div
-                  key={repo.id}
-                  onClick={() => router.push(`/workspace/${repo.id}`)}
-                  className="p-4 rounded-xl glass-panel hover:border-indigo-500/40 cursor-pointer flex items-center justify-between group transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300 group-hover:text-indigo-400">
-                      <Code2 className="h-4 w-4" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {uniqueRepos.map((repo) => {
+                const isTs = (repo.primaryLanguage || '').toLowerCase().includes('typescript');
+                const isJs = (repo.primaryLanguage || '').toLowerCase().includes('javascript');
+                const dotColor = isTs ? 'bg-cyan-400' : isJs ? 'bg-amber-400' : 'bg-indigo-400';
+
+                return (
+                  <div
+                    key={repo.id}
+                    onClick={() => router.push(`/workspace/${repo.id}`)}
+                    className="p-5 rounded-2xl glass-panel border border-slate-800/90 hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/5 cursor-pointer flex flex-col justify-between group transition-all duration-200 hover:-translate-y-0.5"
+                  >
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3 mb-2.5">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-9 w-9 shrink-0 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center text-slate-400 group-hover:text-cyan-400 group-hover:border-cyan-500/40 transition-colors">
+                          <Code2 className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white group-hover:text-cyan-300 transition-colors truncate">
+                            <span className="text-slate-400 font-normal">{repo.owner} / </span>
+                            {repo.name}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        title="Remove repository from workspace list"
+                        onClick={(e) => handleDeleteRepo(repo.id, e)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0 opacity-40 group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">
-                        {repo.owner}/{repo.name}
-                      </p>
-                      <p className="text-xs text-slate-400 truncate max-w-xs">{repo.description}</p>
+
+                    {/* Description */}
+                    <p className="text-xs text-slate-400 mb-4 line-clamp-2 leading-relaxed h-8">
+                      {repo.description || `Interactive architecture model for ${repo.owner}/${repo.name}`}
+                    </p>
+
+                    {/* Metadata Badges Footer */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-800/60">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] font-mono text-slate-300">
+                          <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+                          {repo.primaryLanguage || 'TypeScript'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900/60 text-[10px] font-mono text-slate-500">
+                          <GitBranch className="h-3 w-3" />
+                          {repo.defaultBranch || 'main'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-medium text-emerald-400">
+                          <span className="h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
+                          Ready
+                        </span>
+                        <ArrowRight className="h-4 w-4 text-slate-500 group-hover:text-cyan-400 transition-all group-hover:translate-x-1" />
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono">
-                      {repo.primaryLanguage}
-                    </span>
-                    <ArrowRight className="h-4 w-4 text-slate-500 group-hover:text-indigo-400 transition-transform group-hover:translate-x-1" />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

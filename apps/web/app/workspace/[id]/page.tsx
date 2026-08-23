@@ -1,37 +1,26 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   GitBranch,
-  Network,
   Layers,
-  Search,
-  Bot,
-  Code2,
-  Database,
-  ArrowRight,
-  Send,
-  Sparkles,
-  FileCode2,
-  Folder,
-  ChevronRight,
-  ChevronDown,
-  Activity,
-  CheckCircle2,
-  ExternalLink,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Radio,
-  Minimize2,
-  Info,
-  ShieldCheck,
-  Server,
   Zap,
+  Network,
+  Cpu,
+  Search,
+  Sparkles,
+  Terminal,
+  Activity,
+  Maximize2,
+  Minimize2,
+  ExternalLink,
+  CheckCircle2,
+  Bot,
+  GripVertical,
+  GripHorizontal,
 } from 'lucide-react';
-import Editor from '@monaco-editor/react';
 import { useWorkspaceStore } from '@/lib/store';
 import {
   fetchRepositoryById,
@@ -39,9 +28,9 @@ import {
   fetchFileContent,
   fetchGraph,
   fetchRoutes,
-  traceRequestFlow,
   fetchTechnologies,
   fetchSymbols,
+  traceRequestFlow,
   sendChatMessage,
 } from '@/lib/api';
 import { FileTreeView } from '@/features/explorer/FileTreeView';
@@ -96,13 +85,55 @@ export default function WorkspacePage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [isCodeViewerExpanded, setIsCodeViewerExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'files' | 'symbols' | 'routes' | 'tech'>('files');
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-    src: true,
-    'src/routes': true,
-    'src/controllers': true,
-    'src/services': true,
-  });
-  const [zoomLevel, setZoomLevel] = useState(1);
+
+  // Resizable Panes State (Clamped with slim defaults for spacious centered canvas)
+  const [leftWidth, setLeftWidth] = useState(220);
+  const [rightWidth, setRightWidth] = useState(280);
+  const [bottomHeight, setBottomHeight] = useState(90);
+
+  const isResizingRef = useRef<'left' | 'right' | 'bottom' | null>(null);
+
+  const startResizingLeft = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = 'left';
+  };
+
+  const startResizingRight = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = 'right';
+  };
+
+  const startResizingBottom = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = 'bottom';
+  };
+
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      if (isResizingRef.current === 'left') {
+        const newWidth = Math.max(180, Math.min(550, e.clientX));
+        setLeftWidth(newWidth);
+      } else if (isResizingRef.current === 'right') {
+        const newWidth = Math.max(260, Math.min(650, window.innerWidth - e.clientX));
+        setRightWidth(newWidth);
+      } else if (isResizingRef.current === 'bottom') {
+        const newHeight = Math.max(80, Math.min(550, window.innerHeight - e.clientY));
+        setBottomHeight(newHeight);
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      isResizingRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, []);
 
   // Load all initial repository workspace data
   useEffect(() => {
@@ -146,10 +177,29 @@ export default function WorkspacePage() {
     loadWorkspace();
   }, [repoId, setRepository, setFiles, setActiveFile, setGraphData, setRoutes, setSelectedRoute, setActiveTrace, setTechnologies]);
 
+  // Handle switching graph visualization modes
+  const handleGraphModeChange = async (mode: 'architecture' | 'dependency' | 'flow') => {
+    setGraphMode(mode);
+    if (mode === 'architecture' || mode === 'dependency') {
+      try {
+        const graph = await fetchGraph(repoId, mode);
+        setGraphData(graph.nodes, graph.edges);
+      } catch (err) {
+        console.error('Failed to switch graph mode', err);
+      }
+    } else if (mode === 'flow') {
+      try {
+        const trace = await traceRequestFlow(repoId, selectedRoute?.id || 'route-post-ocr');
+        setActiveTrace(trace);
+      } catch (err) {
+        console.error('Failed to fetch request flow trace', err);
+      }
+    }
+  };
+
   // Handle opening a file at a specific line range
   const handleOpenFile = async (fileIdOrPath: string, lineRange?: [number, number]) => {
     try {
-      // Look up file by id or by relative path match
       const matched = files.find((f) => f.id === fileIdOrPath || f.path === fileIdOrPath || f.path.endsWith(fileIdOrPath));
       const targetId = matched ? matched.id : fileIdOrPath;
       const file = await fetchFileContent(repoId, targetId);
@@ -181,14 +231,14 @@ export default function WorkspacePage() {
     setChatLoading(true);
 
     try {
-      const reply = await sendChatMessage(repoId, text);
-      addMessage(reply);
+      const response = await sendChatMessage(repoId, text);
+      addMessage(response);
     } catch (err) {
       addMessage({
         id: `msg-err-${Date.now()}`,
         sessionId: 'session-default',
         role: 'assistant',
-        content: 'I encountered an error connecting to the codebase index. Please check the API server status.',
+        content: '⚠️ Failed to connect to AI gateway. Please verify your Groq API key.',
         createdAt: new Date().toISOString(),
       });
     } finally {
@@ -196,16 +246,12 @@ export default function WorkspacePage() {
     }
   };
 
-  const toggleFolder = (folder: string) => {
-    setExpandedFolders((prev) => ({ ...prev, [folder]: !prev[folder] }));
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-slate-200">
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-slate-100 font-sans">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center animate-pulse">
-            <Network className="h-6 w-6 text-cyan-400 animate-spin" />
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center shadow-glow animate-pulse">
+            <Network className="h-6 w-6 text-white" />
           </div>
           <p className="font-mono text-sm text-slate-400">Loading codebase architecture & graph...</p>
         </div>
@@ -214,7 +260,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-slate-100 overflow-hidden font-sans">
+    <div className="h-screen w-screen flex flex-col bg-background text-slate-100 overflow-hidden font-sans select-none">
       {/* 1. TOP BAR */}
       <header className="h-14 border-b border-slate-800/80 glass-panel px-4 flex items-center justify-between z-30 shrink-0">
         <div className="flex items-center gap-4">
@@ -252,7 +298,7 @@ export default function WorkspacePage() {
         {/* Center Mode Switcher Tabs */}
         <div className="hidden md:flex items-center p-1 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
           <button
-            onClick={() => setGraphMode('architecture')}
+            onClick={() => handleGraphModeChange('architecture')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               graphMode === 'architecture'
                 ? 'bg-indigo-600 text-white shadow-glow'
@@ -263,7 +309,7 @@ export default function WorkspacePage() {
             <span>Architecture</span>
           </button>
           <button
-            onClick={() => setGraphMode('dependency')}
+            onClick={() => handleGraphModeChange('dependency')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               graphMode === 'dependency'
                 ? 'bg-indigo-600 text-white shadow-glow'
@@ -274,7 +320,7 @@ export default function WorkspacePage() {
             <span>Dependencies</span>
           </button>
           <button
-            onClick={() => setGraphMode('flow')}
+            onClick={() => handleGraphModeChange('flow')}
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               graphMode === 'flow'
                 ? 'bg-indigo-600 text-white shadow-glow'
@@ -326,10 +372,13 @@ export default function WorkspacePage() {
       </header>
 
       {/* 2. MAIN 3-PANE WORKSPACE BODY */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden relative w-full h-[calc(100vh-3.5rem)]">
         {/* LEFT PANE: File Tree, Symbols, Routes & Technologies */}
-        <aside className="w-80 border-r border-slate-800/80 glass-panel flex flex-col shrink-0 z-20">
-          <div className="flex items-center border-b border-slate-800/80 p-1.5 bg-slate-900/60 text-xs">
+        <aside
+          style={{ width: `${leftWidth}px` }}
+          className="border-r border-slate-800/80 glass-panel flex flex-col shrink-0 z-20 h-full overflow-hidden"
+        >
+          <div className="flex items-center border-b border-slate-800/80 p-1.5 bg-slate-900/60 text-xs shrink-0">
             <button
               onClick={() => setActiveTab('files')}
               className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
@@ -419,7 +468,7 @@ export default function WorkspacePage() {
                       </div>
                       <p className="text-xs font-mono text-cyan-300 font-medium truncate">{route.path}</p>
                       {route.handlerName && (
-                        <p className="text-[11px] text-slate-400 mt-1 truncate">$\rightarrow$ {route.handlerName}</p>
+                        <p className="text-[11px] text-slate-400 mt-1 truncate">→ {route.handlerName}</p>
                       )}
                     </div>
                   );
@@ -451,10 +500,19 @@ export default function WorkspacePage() {
           </div>
         </aside>
 
+        {/* Left Resize Splitter Handle */}
+        <div
+          onMouseDown={startResizingLeft}
+          className="w-1.5 hover:w-2.5 bg-slate-800/40 hover:bg-cyan-500/80 cursor-col-resize shrink-0 transition-all z-30 flex items-center justify-center group"
+          title="Drag to resize left sidebar"
+        >
+          <div className="h-6 w-0.5 bg-slate-600 group-hover:bg-white rounded-full" />
+        </div>
+
         {/* CENTER PANE: Interactive Canvas & Request Flow */}
-        <main className="flex-1 flex flex-col overflow-hidden relative">
+        <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
           {/* Canvas View */}
-          <div className="flex-1 relative overflow-hidden bg-slate-950/50 flex flex-col">
+          <div className="flex-1 relative overflow-hidden bg-slate-950/50 flex flex-col min-h-0">
             {graphMode !== 'flow' ? (
               <div className="relative w-full h-full">
                 <GraphCanvas
@@ -464,21 +522,6 @@ export default function WorkspacePage() {
                   onSelectNode={setSelectedNode}
                   onOpenSource={(path) => handleOpenFile(path)}
                 />
-
-                {/* Floating Node Inspector */}
-                {selectedNode && (
-                  <div className="absolute bottom-4 right-4 z-40">
-                    <NodeInspector
-                      node={selectedNode}
-                      edges={graphEdges}
-                      allNodes={graphNodes}
-                      symbols={symbols}
-                      onClose={() => setSelectedNode(null)}
-                      onSelectNode={setSelectedNode}
-                      onOpenSource={(path, range) => handleOpenFile(path, range)}
-                    />
-                  </div>
-                )}
               </div>
             ) : (
               <RequestFlowView
@@ -498,14 +541,33 @@ export default function WorkspacePage() {
             )}
           </div>
 
+          {/* Bottom Horizontal Resize Splitter Handle */}
+          <div
+            onMouseDown={startResizingBottom}
+            className="h-1.5 hover:h-2.5 bg-slate-800/40 hover:bg-cyan-500/80 cursor-row-resize shrink-0 transition-all z-30 flex items-center justify-center group"
+            title="Drag to resize source editor"
+          >
+            <div className="w-8 h-0.5 bg-slate-600 group-hover:bg-white rounded-full" />
+          </div>
+
           {/* Monaco Editor Code Viewer */}
           <CodeViewer
             file={activeFile}
             highlightedLines={highlightedLines}
             isExpanded={isCodeViewerExpanded}
             onToggleExpand={() => setIsCodeViewerExpanded((v) => !v)}
+            height={bottomHeight}
           />
         </main>
+
+        {/* Right Resize Splitter Handle */}
+        <div
+          onMouseDown={startResizingRight}
+          className="w-1.5 hover:w-2.5 bg-slate-800/40 hover:bg-cyan-500/80 cursor-col-resize shrink-0 transition-all z-30 flex items-center justify-center group"
+          title="Drag to resize AI assistant"
+        >
+          <div className="h-6 w-0.5 bg-slate-600 group-hover:bg-white rounded-full" />
+        </div>
 
         {/* RIGHT PANE: Grounded AI Assistant */}
         <ChatAssistantPane
@@ -513,6 +575,7 @@ export default function WorkspacePage() {
           isLoading={chatLoading}
           onSendMessage={(msg) => handleSendChat(msg)}
           onOpenCitation={(filePath, lineRange) => handleOpenFile(filePath, lineRange)}
+          width={rightWidth}
         />
       </div>
 

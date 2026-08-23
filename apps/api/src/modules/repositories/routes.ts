@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { validateAndParseGitHubUrl } from '@gitlens/utils';
 import { db } from '@gitlens/database';
+import { ingestionPipeline } from '@gitlens/ingestion';
 
 const createRepoSchema = z.object({
   url: z.string().min(1, 'Repository URL is required'),
@@ -36,11 +37,13 @@ export const repositoryRoutes: FastifyPluginAsync = async (fastify) => {
         primaryLanguage: 'TypeScript',
       });
 
-      // Ensure an initial analysis record exists
-      let analysis = await db.getLatestAnalysisForRepo(repository.id);
-      if (!analysis) {
-        analysis = await db.createAnalysis(repository.id, 'HEAD');
-      }
+      // Always create a fresh analysis record for fresh scanning
+      const analysis = await db.createAnalysis(repository.id, 'HEAD');
+
+      // Kick off ingestion run immediately
+      ingestionPipeline.run(repository.id, analysis.id).catch((err: any) => {
+        console.error('Background ingestion error:', err);
+      });
 
       return reply.status(201).send({
         repository,
@@ -107,5 +110,15 @@ export const repositoryRoutes: FastifyPluginAsync = async (fastify) => {
 
     const technologies = await db.getTechnologiesForAnalysis(analysis.id);
     return { technologies };
+  });
+
+  // 7. Delete repository
+  fastify.delete('/api/repositories/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const deleted = await db.deleteRepository(id);
+    if (!deleted) {
+      return reply.status(404).send({ error: 'Repository not found' });
+    }
+    return { success: true };
   });
 };

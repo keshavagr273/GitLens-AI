@@ -1,7 +1,22 @@
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 import { z } from 'zod';
 
-dotenv.config();
+// Load .env from current directory or monorepo root
+const envPaths = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../../.env'),
+  path.resolve(process.cwd(), '../.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(__dirname, '../../../.env'),
+];
+
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
+}
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
@@ -18,8 +33,10 @@ const envSchema = z.object({
   GITHUB_CLIENT_ID: z.string().optional().default(''),
   GITHUB_CLIENT_SECRET: z.string().optional().default(''),
 
-  LLM_PROVIDER: z.enum(['openai', 'anthropic', 'gemini', 'groq', 'mock']).default('mock'),
+  LLM_PROVIDER: z.enum(['openai', 'anthropic', 'gemini', 'groq', 'mock']).default('groq'),
   LLM_API_KEY: z.string().optional().default(''),
+  GROQ_API_KEY: z.string().optional().default(''),
+  GROQ_MODEL: z.string().default('openai/gpt-oss-120b'),
   EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   EMBEDDING_DIMENSION: z.coerce.number().default(1536),
 

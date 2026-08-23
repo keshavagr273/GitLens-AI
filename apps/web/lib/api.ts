@@ -123,3 +123,15 @@ export async function searchCodebase(repoId: string, query: string, topK = 5): P
     return [];
   }
 }
+
+export async function deleteRepository(repoId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/repositories/${repoId}`, {
+      method: 'DELETE',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+

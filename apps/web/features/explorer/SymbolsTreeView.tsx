@@ -32,6 +32,22 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
     setExpandedClasses((prev) => ({ ...prev, [classId]: !prev[classId] }));
   };
 
+  const expandAll = () => {
+    const all: Record<string, boolean> = {};
+    classes.forEach((c) => {
+      all[c.id] = true;
+    });
+    setExpandedClasses(all);
+  };
+
+  const collapseAll = () => {
+    const all: Record<string, boolean> = {};
+    classes.forEach((c) => {
+      all[c.id] = false;
+    });
+    setExpandedClasses(all);
+  };
+
   const getComplexityColor = (comp: number) => {
     if (comp <= 2) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
     if (comp <= 5) return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
@@ -40,12 +56,33 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
 
   return (
     <div className="space-y-3 text-xs">
+      {/* Expand/Collapse Controls */}
+      <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-800/80">
+        <span className="text-[11px] font-mono text-slate-400">AST Symbols ({symbols.length})</span>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={expandAll}
+            className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+          >
+            Expand All
+          </button>
+          <button
+            onClick={collapseAll}
+            className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+          >
+            Collapse All
+          </button>
+        </div>
+      </div>
+
       {/* 1. Classes & Methods */}
       {classes.length > 0 && (
         <div>
-          <div className="flex items-center gap-1.5 text-slate-400 font-semibold px-2 py-1 text-[11px] uppercase tracking-wider">
-            <Box className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Classes ({classes.length})</span>
+          <div className="flex items-center justify-between text-slate-400 font-semibold px-2 py-1 text-[11px] uppercase tracking-wider">
+            <div className="flex items-center gap-1.5">
+              <Box className="h-3.5 w-3.5 text-indigo-400" />
+              <span>Classes ({classes.length})</span>
+            </div>
           </div>
 
           <div className="space-y-1 mt-1">

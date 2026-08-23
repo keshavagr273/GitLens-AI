@@ -22,7 +22,9 @@
     "@gitlens/config": "*",
     "@gitlens/database": "*",
     "@gitlens/shared-types": "*",
-    "@gitlens/utils": "*"
+    "@gitlens/utils": "*",
+    "@gitlens/parser-core": "*",
+    "@gitlens/graph-core": "*"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

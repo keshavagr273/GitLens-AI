@@ -33,6 +33,8 @@ export class DatabaseStore {
   private technologies: Map<string, Technology[]> = new Map();
   private graphNodes: Map<string, GraphNode[]> = new Map();
   private graphEdges: Map<string, GraphEdge[]> = new Map();
+  private depNodes: Map<string, GraphNode[]> = new Map();
+  private depEdges: Map<string, GraphEdge[]> = new Map();
   private traces: Map<string, RequestFlowTrace> = new Map();
 
   constructor() {
@@ -72,9 +74,35 @@ export class DatabaseStore {
 
   // --- Repositories ---
   async getAllRepositories(): Promise<Repository[]> {
-    return Array.from(this.repositories.values()).sort(
+    const list = Array.from(this.repositories.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
+    const seen = new Set<string>();
+    const deduplicated: Repository[] = [];
+    for (const repo of list) {
+      const key = `${repo.owner.toLowerCase()}/${repo.name.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(repo);
+      }
+    }
+    return deduplicated;
+  }
+
+  async deleteRepository(id: string): Promise<boolean> {
+    const repo = this.repositories.get(id);
+    if (!repo) {
+      // Try to find by matching owner/name
+      for (const [key, r] of this.repositories.entries()) {
+        if (r.id === id || `${r.owner}/${r.name}` === id) {
+          this.repositories.delete(key);
+          return true;
+        }
+      }
+      return false;
+    }
+    this.repositories.delete(id);
+    return true;
   }
 
   async getRepositoryById(id: string): Promise<Repository | null> {
@@ -99,9 +127,6 @@ export class DatabaseStore {
     primaryLanguage?: string;
     sizeKb?: number;
   }): Promise<Repository> {
-    const existing = await this.getRepositoryByUrl(data.githubUrl);
-    if (existing) return existing;
-
     const id = `repo-${data.owner}-${data.name}-${generateUuid().slice(0, 6)}`;
     const repo: Repository = {
       id,
@@ -126,15 +151,16 @@ export class DatabaseStore {
   }
 
   async getLatestAnalysisForRepo(repositoryId: string): Promise<RepositoryAnalysis | null> {
-    const byKey = this.analyses.get(`repo:${repositoryId}`);
-    if (byKey) return byKey;
-
+    const matches: RepositoryAnalysis[] = [];
     for (const analysis of this.analyses.values()) {
       if (analysis.repositoryId === repositoryId) {
-        return analysis;
+        matches.push(analysis);
       }
     }
-    return null;
+    if (matches.length > 0) {
+      return matches.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    }
+    return this.analyses.get(`repo:${repositoryId}`) || null;
   }
 
   async createAnalysis(repositoryId: string, commitSha = 'HEAD'): Promise<RepositoryAnalysis> {
@@ -191,9 +217,33 @@ export class DatabaseStore {
     return analysis;
   }
 
+  // --- Dynamic Storage ---
+  setAnalysisData(
+    analysisId: string,
+    data: {
+      files?: SourceFile[];
+      symbols?: SymbolNode[];
+      routes?: ApiRoute[];
+      technologies?: Technology[];
+      graphNodes?: GraphNode[];
+      graphEdges?: GraphEdge[];
+      depNodes?: GraphNode[];
+      depEdges?: GraphEdge[];
+    }
+  ) {
+    if (data.files) this.files.set(analysisId, data.files);
+    if (data.symbols) this.symbols.set(analysisId, data.symbols);
+    if (data.routes) this.routes.set(analysisId, data.routes);
+    if (data.technologies) this.technologies.set(analysisId, data.technologies);
+    if (data.graphNodes) this.graphNodes.set(analysisId, data.graphNodes);
+    if (data.graphEdges) this.graphEdges.set(analysisId, data.graphEdges);
+    if (data.depNodes) this.depNodes.set(analysisId, data.depNodes);
+    if (data.depEdges) this.depEdges.set(analysisId, data.depEdges);
+  }
+
   // --- Files & Symbols ---
   async getFilesForAnalysis(analysisId: string): Promise<SourceFile[]> {
-    return this.files.get(analysisId) || this.files.get('analysis-fastify-001') || [];
+    return this.files.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.files.get('analysis-fastify-001') || [] : []);
   }
 
   async getFileById(analysisId: string, fileId: string): Promise<SourceFile | null> {
@@ -202,7 +252,7 @@ export class DatabaseStore {
   }
 
   async getSymbolsForAnalysis(analysisId: string): Promise<SymbolNode[]> {
-    return this.symbols.get(analysisId) || this.symbols.get('analysis-fastify-001') || [];
+    return this.symbols.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.symbols.get('analysis-fastify-001') || [] : []);
   }
 
   // --- Graph ---
@@ -210,27 +260,31 @@ export class DatabaseStore {
     analysisId: string,
     mode: 'architecture' | 'dependency' | 'flow' = 'architecture'
   ): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
-    const nodes = this.graphNodes.get(analysisId) || this.graphNodes.get('analysis-fastify-001') || [];
-    const edges = this.graphEdges.get(analysisId) || this.graphEdges.get('analysis-fastify-001') || [];
+    if (mode === 'dependency') {
+      const depN = this.depNodes.get(analysisId);
+      const depE = this.depEdges.get(analysisId);
+      if (depN && depN.length > 0) {
+        return { nodes: depN, edges: depE || [] };
+      }
+      return { nodes: [], edges: [] };
+    }
+    const nodes = this.graphNodes.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.graphNodes.get('analysis-fastify-001') || [] : []);
+    const edges = this.graphEdges.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.graphEdges.get('analysis-fastify-001') || [] : []);
     return { nodes, edges };
   }
 
   // --- Routes & Traces ---
   async getRoutesForAnalysis(analysisId: string): Promise<ApiRoute[]> {
-    return this.routes.get(analysisId) || this.routes.get('analysis-fastify-001') || [];
+    return this.routes.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.routes.get('analysis-fastify-001') || [] : []);
   }
 
   async getRequestFlowTrace(routeId: string): Promise<RequestFlowTrace | null> {
-    return (
-      this.traces.get(routeId) ||
-      this.traces.get('route-post-orders') ||
-      null
-    );
+    return this.traces.get(routeId) || (routeId === 'route-post-orders' ? this.traces.get('route-post-orders') || null : null);
   }
 
   // --- Technologies ---
   async getTechnologiesForAnalysis(analysisId: string): Promise<Technology[]> {
-    return this.technologies.get(analysisId) || this.technologies.get('analysis-fastify-001') || [];
+    return this.technologies.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.technologies.get('analysis-fastify-001') || [] : []);
   }
 
   // --- Chunks ---
