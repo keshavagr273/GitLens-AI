@@ -46,6 +46,10 @@ import {
 } from '@/lib/api';
 import { FileTreeView } from '@/features/explorer/FileTreeView';
 import { SymbolsTreeView } from '@/features/explorer/SymbolsTreeView';
+import { GraphCanvas } from '@/features/graph/GraphCanvas';
+import { NodeInspector } from '@/features/graph/NodeInspector';
+import { OmnibarSearch } from '@/features/workspace/OmnibarSearch';
+import { CodeViewer } from '@/features/editor/CodeViewer';
 import { GraphNode, SourceFile, ApiRoute, RequestFlowHop, SymbolNode } from '@gitlens/shared-types';
 
 export default function WorkspacePage() {
@@ -83,6 +87,7 @@ export default function WorkspacePage() {
   const [loading, setLoading] = useState(true);
   const [symbols, setSymbols] = useState<SymbolNode[]>([]);
   const [activeSymbolId, setActiveSymbolId] = useState<string | undefined>();
+  const [isOmnibarOpen, setIsOmnibarOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [isCodeViewerExpanded, setIsCodeViewerExpanded] = useState(false);
@@ -138,9 +143,12 @@ export default function WorkspacePage() {
   }, [repoId, setRepository, setFiles, setActiveFile, setGraphData, setRoutes, setSelectedRoute, setActiveTrace, setTechnologies]);
 
   // Handle opening a file at a specific line range
-  const handleOpenFile = async (fileId: string, lineRange?: [number, number]) => {
+  const handleOpenFile = async (fileIdOrPath: string, lineRange?: [number, number]) => {
     try {
-      const file = await fetchFileContent(repoId, fileId);
+      // Look up file by id or by relative path match
+      const matched = files.find((f) => f.id === fileIdOrPath || f.path === fileIdOrPath || f.path.endsWith(fileIdOrPath));
+      const targetId = matched ? matched.id : fileIdOrPath;
+      const file = await fetchFileContent(repoId, targetId);
       setActiveFile(file, lineRange || null);
     } catch (err) {
       console.error('Failed to open file', err);
@@ -158,26 +166,25 @@ export default function WorkspacePage() {
     const text = presetMessage || chatInput;
     if (!text.trim() || chatLoading) return;
 
-    const userMsg = {
-      id: `user-${Date.now()}`,
-      sessionId: 'default',
-      role: 'user' as const,
+    addMessage({
+      id: `msg-user-${Date.now()}`,
+      sessionId: 'session-default',
+      role: 'user',
       content: text,
       createdAt: new Date().toISOString(),
-    };
-    addMessage(userMsg);
+    });
     setChatInput('');
     setChatLoading(true);
 
     try {
-      const aiResponse = await sendChatMessage(repoId, text);
-      addMessage(aiResponse);
+      const reply = await sendChatMessage(repoId, text);
+      addMessage(reply);
     } catch (err) {
       addMessage({
-        id: `err-${Date.now()}`,
-        sessionId: 'default',
+        id: `msg-err-${Date.now()}`,
+        sessionId: 'session-default',
         role: 'assistant',
-        content: 'I encountered an issue querying the code graph. Please try again.',
+        content: 'I encountered an error connecting to the codebase index. Please check the API server status.',
         createdAt: new Date().toISOString(),
       });
     } finally {
@@ -189,12 +196,14 @@ export default function WorkspacePage() {
     setExpandedFolders((prev) => ({ ...prev, [folder]: !prev[folder] }));
   };
 
-  if (loading && !repository) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-slate-300">
-        <div className="flex items-center gap-3 glass-panel p-6 rounded-2xl">
-          <Activity className="h-5 w-5 text-indigo-400 animate-spin" />
-          <span className="text-sm font-medium">Loading GitLens AI Workspace...</span>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-slate-200">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center animate-pulse">
+            <Network className="h-6 w-6 text-cyan-400 animate-spin" />
+          </div>
+          <p className="font-mono text-sm text-slate-400">Loading codebase architecture & graph...</p>
         </div>
       </div>
     );
@@ -273,8 +282,19 @@ export default function WorkspacePage() {
           </button>
         </div>
 
-        {/* Right Tools */}
-        <div className="flex items-center gap-3">
+        {/* Right Tools & Omnibar Trigger */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsOmnibarOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/40 text-slate-400 hover:text-white text-xs transition-colors shadow-inner"
+          >
+            <Search className="h-3.5 w-3.5 text-indigo-400" />
+            <span>Search codebase...</span>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+              ⌘K
+            </kbd>
+          </button>
+
           <button
             onClick={() => handleSendChat('Explain overall repository architecture and entry points.')}
             className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:text-white text-xs transition-colors"
@@ -422,93 +442,30 @@ export default function WorkspacePage() {
         <main className="flex-1 flex flex-col overflow-hidden relative">
           {/* Canvas View */}
           <div className="flex-1 relative overflow-hidden bg-slate-950/50 flex flex-col">
-            {/* Canvas Header / Controls */}
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
-              <div className="px-3 py-1 rounded-xl glass-panel text-xs text-slate-300 flex items-center gap-2 border border-slate-800">
-                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="font-medium capitalize">{graphMode} Canvas</span>
-                <span className="text-slate-500">|</span>
-                <span className="text-slate-400">{graphNodes.length} nodes</span>
-              </div>
-            </div>
-
-            <div className="absolute top-3 right-3 z-10 flex items-center gap-1 glass-panel p-1 rounded-xl border border-slate-800">
-              <button
-                onClick={() => setZoomLevel((z) => Math.min(1.4, z + 0.1))}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-              >
-                <ZoomIn className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.1))}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-              >
-                <ZoomOut className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setZoomLevel(1)}
-                className="px-2 py-1 text-[11px] font-mono text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
-              >
-                {Math.round(zoomLevel * 100)}%
-              </button>
-            </div>
-
-            {/* Interactive Graph Canvas Render */}
             {graphMode !== 'flow' ? (
-              <div
-                className="flex-1 flex items-center justify-center p-8 transition-transform duration-200"
-                style={{ transform: `scale(${zoomLevel})` }}
-              >
-                <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {graphNodes.map((node) => {
-                    const isSelected = selectedNode?.id === node.id;
-                    const inCycle = !!node.metadata?.inCycle;
-                    return (
-                      <div
-                        key={node.id}
-                        onClick={() => {
-                          setSelectedNode(node);
-                          if (node.path) {
-                            handleOpenFile(node.path);
-                          }
-                        }}
-                        className={`p-5 rounded-2xl glass-panel border cursor-pointer transition-all hover:scale-105 ${
-                          isSelected
-                            ? 'border-cyan-400 shadow-glow-cyan bg-cyan-950/20'
-                            : inCycle
-                            ? 'border-red-500/50 bg-red-950/10'
-                            : 'border-slate-800 hover:border-indigo-500/50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="h-8 w-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                            {node.type === 'module' ? (
-                              <Server className="h-4 w-4" />
-                            ) : node.type === 'database_table' ? (
-                              <Database className="h-4 w-4 text-cyan-400" />
-                            ) : (
-                              <Code2 className="h-4 w-4 text-emerald-400" />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {inCycle && (
-                              <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40">
-                                Cycle
-                              </span>
-                            )}
-                            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
-                              {node.type}
-                            </span>
-                          </div>
-                        </div>
-                        <h4 className="font-semibold text-sm text-white mb-1">{node.name}</h4>
-                        {node.path && (
-                          <p className="text-[11px] font-mono text-slate-400 truncate">{node.path}</p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="relative w-full h-full">
+                <GraphCanvas
+                  nodes={graphNodes}
+                  edges={graphEdges}
+                  selectedNode={selectedNode}
+                  onSelectNode={setSelectedNode}
+                  onOpenSource={(path) => handleOpenFile(path)}
+                />
+
+                {/* Floating Node Inspector */}
+                {selectedNode && (
+                  <div className="absolute bottom-4 right-4 z-40">
+                    <NodeInspector
+                      node={selectedNode}
+                      edges={graphEdges}
+                      allNodes={graphNodes}
+                      symbols={symbols}
+                      onClose={() => setSelectedNode(null)}
+                      onSelectNode={setSelectedNode}
+                      onOpenSource={(path, range) => handleOpenFile(path, range)}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               /* Request Flow Stepper View */
@@ -572,54 +529,13 @@ export default function WorkspacePage() {
             )}
           </div>
 
-          {/* Monaco Editor Bottom Pane */}
-          <div
-            className={`border-t border-slate-800/80 glass-panel flex flex-col transition-all duration-300 ${
-              isCodeViewerExpanded ? 'h-[500px]' : 'h-64'
-            }`}
-          >
-            {/* Viewer Header */}
-            <div className="h-9 px-4 border-b border-slate-800/80 bg-slate-900/90 flex items-center justify-between text-xs shrink-0">
-              <div className="flex items-center gap-2">
-                <FileCode2 className="h-4 w-4 text-indigo-400" />
-                <span className="font-mono text-slate-200 font-medium">
-                  {activeFile?.path || 'Select a file to inspect'}
-                </span>
-                {highlightedLines && (
-                  <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono">
-                    Lines {highlightedLines[0]} - {highlightedLines[1]}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsCodeViewerExpanded((v) => !v)}
-                  className="p-1 rounded text-slate-400 hover:text-white"
-                >
-                  {isCodeViewerExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Monaco Editor Component */}
-            <div className="flex-1">
-              <Editor
-                height="100%"
-                theme="vs-dark"
-                language={activeFile?.language || 'typescript'}
-                value={activeFile?.content || '// Click any node, route, or citation to view source code.'}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  fontSize: 12,
-                  fontFamily: 'Fira Code, monospace',
-                  scrollBeyondLastLine: false,
-                  lineNumbers: 'on',
-                  automaticLayout: true,
-                }}
-              />
-            </div>
-          </div>
+          {/* Monaco Editor Code Viewer */}
+          <CodeViewer
+            file={activeFile}
+            highlightedLines={highlightedLines}
+            isExpanded={isCodeViewerExpanded}
+            onToggleExpand={() => setIsCodeViewerExpanded((v) => !v)}
+          />
         </main>
 
         {/* RIGHT PANE: Grounded AI Assistant */}
@@ -726,6 +642,24 @@ export default function WorkspacePage() {
           </form>
         </aside>
       </div>
+
+      {/* 3. Omnibar Search Modal */}
+      <OmnibarSearch
+        isOpen={isOmnibarOpen}
+        onClose={() => setIsOmnibarOpen(false)}
+        files={files}
+        symbols={symbols}
+        routes={routes}
+        technologies={technologies}
+        onOpenSource={(path, range) => handleOpenFile(path, range)}
+        onSelectRoute={(route) => {
+          setSelectedRoute(route);
+          setGraphMode('flow');
+          if (route.fileId) {
+            handleOpenFile(route.fileId, [route.startLine, route.startLine + 10]);
+          }
+        }}
+      />
     </div>
   );
 }
