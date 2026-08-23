@@ -9,13 +9,14 @@
     "workers/*"
   ],
   "scripts": {
-    "build:packages": "npm --workspace=@gitlens/shared-types run build && npm --workspace=@gitlens/utils run build && npm --workspace=@gitlens/config run build && npm --workspace=@gitlens/database run build && npm --workspace=@gitlens/ingestion run build",
+    "build:packages": "npm --workspace=@gitlens/shared-types run build && npm --workspace=@gitlens/utils run build && npm --workspace=@gitlens/config run build && npm --workspace=@gitlens/database run build && npm --workspace=@gitlens/ingestion run build && npm --workspace=@gitlens/parser-core run build && npm --workspace=@gitlens/graph-core run build",
     "build": "npm run build:packages && npm --workspace=@gitlens/api run build && npm --workspace=@gitlens/analyzer run build && npm --workspace=@gitlens/web run build",
     "dev": "npm run dev:api & npm run dev:web",
     "dev:api": "npm --workspace=@gitlens/api run dev",
     "dev:web": "npm --workspace=@gitlens/web run dev",
     "dev:worker": "npm --workspace=@gitlens/analyzer run dev",
-    "typecheck": "npm --workspace=@gitlens/shared-types run typecheck && npm --workspace=@gitlens/utils run typecheck && npm --workspace=@gitlens/config run typecheck && npm --workspace=@gitlens/database run typecheck && npm --workspace=@gitlens/ingestion run typecheck && npm --workspace=@gitlens/api run typecheck && npm --workspace=@gitlens/web run typecheck",
+    "typecheck": "npm --workspace=@gitlens/shared-types run typecheck && npm --workspace=@gitlens/utils run typecheck && npm --workspace=@gitlens/config run typecheck && npm --workspace=@gitlens/database run typecheck && npm --workspace=@gitlens/ingestion run typecheck && npm --workspace=@gitlens/parser-core run typecheck && npm --workspace=@gitlens/graph-core run typecheck && npm --workspace=@gitlens/api run typecheck && npm --workspace=@gitlens/web run typecheck",
+    "test:phase2": "npm --workspace=@gitlens/parser-core run test && npm --workspace=@gitlens/graph-core run test",
     "lint": "echo 'Lint check complete'"
   },
   "keywords": [

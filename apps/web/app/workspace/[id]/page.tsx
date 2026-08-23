@@ -41,10 +41,12 @@ import {
   fetchRoutes,
   traceRequestFlow,
   fetchTechnologies,
+  fetchSymbols,
   sendChatMessage,
 } from '@/lib/api';
 import { FileTreeView } from '@/features/explorer/FileTreeView';
-import { GraphNode, SourceFile, ApiRoute, RequestFlowHop } from '@gitlens/shared-types';
+import { SymbolsTreeView } from '@/features/explorer/SymbolsTreeView';
+import { GraphNode, SourceFile, ApiRoute, RequestFlowHop, SymbolNode } from '@gitlens/shared-types';
 
 export default function WorkspacePage() {
   const params = useParams();
@@ -79,10 +81,12 @@ export default function WorkspacePage() {
   } = useWorkspaceStore();
 
   const [loading, setLoading] = useState(true);
+  const [symbols, setSymbols] = useState<SymbolNode[]>([]);
+  const [activeSymbolId, setActiveSymbolId] = useState<string | undefined>();
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [isCodeViewerExpanded, setIsCodeViewerExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'files' | 'routes' | 'tech'>('files');
+  const [activeTab, setActiveTab] = useState<'files' | 'symbols' | 'routes' | 'tech'>('files');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     src: true,
     'src/routes': true,
@@ -99,17 +103,19 @@ export default function WorkspacePage() {
         const repoData = await fetchRepositoryById(repoId);
         setRepository(repoData.repository, repoData.latestAnalysis);
 
-        const [fileList, graphData, routeList, techList] = await Promise.all([
+        const [fileList, graphData, routeList, techList, symbolList] = await Promise.all([
           fetchFiles(repoId),
           fetchGraph(repoId, 'architecture'),
           fetchRoutes(repoId),
           fetchTechnologies(repoId),
+          fetchSymbols(repoId),
         ]);
 
         setFiles(fileList);
         setGraphData(graphData.nodes, graphData.edges);
         setRoutes(routeList);
         setTechnologies(techList);
+        setSymbols(symbolList);
 
         if (fileList.length > 0) {
           const initialFile = await fetchFileContent(repoId, fileList[0].id);
@@ -139,6 +145,12 @@ export default function WorkspacePage() {
     } catch (err) {
       console.error('Failed to open file', err);
     }
+  };
+
+  // Handle symbol selection
+  const handleSelectSymbol = (sym: SymbolNode) => {
+    setActiveSymbolId(sym.id);
+    handleOpenFile(sym.fileId, [sym.startLine, sym.endLine]);
   };
 
   // Handle chat submission
@@ -282,8 +294,8 @@ export default function WorkspacePage() {
 
       {/* 2. MAIN 3-PANE WORKSPACE BODY */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* LEFT PANE: File Tree, Routes & Technologies */}
-        <aside className="w-72 border-r border-slate-800/80 glass-panel flex flex-col shrink-0 z-20">
+        {/* LEFT PANE: File Tree, Symbols, Routes & Technologies */}
+        <aside className="w-80 border-r border-slate-800/80 glass-panel flex flex-col shrink-0 z-20">
           <div className="flex items-center border-b border-slate-800/80 p-1.5 bg-slate-900/60 text-xs">
             <button
               onClick={() => setActiveTab('files')}
@@ -294,9 +306,17 @@ export default function WorkspacePage() {
               Files ({files.length})
             </button>
             <button
+              onClick={() => setActiveTab('symbols')}
+              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
+                activeTab === 'symbols' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Symbols ({symbols.length})
+            </button>
+            <button
               onClick={() => setActiveTab('routes')}
               className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
-                activeTab === 'routes' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:text-slate-200'
+                activeTab === 'routes' ? 'bg-slate-800 text-amber-300' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               Routes ({routes.length})
@@ -317,6 +337,14 @@ export default function WorkspacePage() {
                 files={files}
                 activeFileId={activeFile?.id}
                 onSelectFile={(fileId) => handleOpenFile(fileId)}
+              />
+            )}
+
+            {activeTab === 'symbols' && (
+              <SymbolsTreeView
+                symbols={symbols}
+                activeSymbolId={activeSymbolId}
+                onSelectSymbol={handleSelectSymbol}
               />
             )}
 
@@ -434,6 +462,7 @@ export default function WorkspacePage() {
                 <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
                   {graphNodes.map((node) => {
                     const isSelected = selectedNode?.id === node.id;
+                    const inCycle = !!node.metadata?.inCycle;
                     return (
                       <div
                         key={node.id}
@@ -446,6 +475,8 @@ export default function WorkspacePage() {
                         className={`p-5 rounded-2xl glass-panel border cursor-pointer transition-all hover:scale-105 ${
                           isSelected
                             ? 'border-cyan-400 shadow-glow-cyan bg-cyan-950/20'
+                            : inCycle
+                            ? 'border-red-500/50 bg-red-950/10'
                             : 'border-slate-800 hover:border-indigo-500/50'
                         }`}
                       >
@@ -459,9 +490,16 @@ export default function WorkspacePage() {
                               <Code2 className="h-4 w-4 text-emerald-400" />
                             )}
                           </div>
-                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
-                            {node.type}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {inCycle && (
+                              <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40">
+                                Cycle
+                              </span>
+                            )}
+                            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
+                              {node.type}
+                            </span>
+                          </div>
                         </div>
                         <h4 className="font-semibold text-sm text-white mb-1">{node.name}</h4>
                         {node.path && (

@@ -57,6 +57,17 @@ export async function fetchFileContent(repoId: string, fileId: string): Promise<
   return data.file;
 }
 
+export async function fetchSymbols(repoId: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/repositories/${repoId}/symbols`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.symbols || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchGraph(repoId: string, mode: string = 'architecture'): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
   const res = await fetch(`${API_BASE_URL}/api/repositories/${repoId}/graph?mode=${mode}`);
   if (!res.ok) throw new Error('Failed to fetch graph');

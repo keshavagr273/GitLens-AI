@@ -1,0 +1,29 @@
+{
+  "name": "@gitlens/graph-core",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npx tsx src/test-runner.ts",
+    "lint": "echo 'No lint specified'"
+  },
+  "dependencies": {
+    "@gitlens/config": "*",
+    "@gitlens/shared-types": "*",
+    "@gitlens/utils": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
