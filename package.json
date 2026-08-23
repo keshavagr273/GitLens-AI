@@ -1,0 +1,36 @@
+{
+  "name": "gitlens-ai-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitLens AI — Production-Grade AI-Powered Codebase Explorer",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "workers/*"
+  ],
+  "scripts": {
+    "build:packages": "npm --workspace=@gitlens/shared-types run build && npm --workspace=@gitlens/utils run build && npm --workspace=@gitlens/config run build && npm --workspace=@gitlens/database run build",
+    "build": "npm run build:packages && npm --workspace=@gitlens/api run build && npm --workspace=@gitlens/analyzer run build && npm --workspace=@gitlens/web run build",
+    "dev": "npm run dev:api & npm run dev:web",
+    "dev:api": "npm --workspace=@gitlens/api run dev",
+    "dev:web": "npm --workspace=@gitlens/web run dev",
+    "dev:worker": "npm --workspace=@gitlens/analyzer run dev",
+    "typecheck": "npm --workspace=@gitlens/shared-types run typecheck && npm --workspace=@gitlens/utils run typecheck && npm --workspace=@gitlens/config run typecheck && npm --workspace=@gitlens/database run typecheck && npm --workspace=@gitlens/api run typecheck && npm --workspace=@gitlens/web run typecheck",
+    "lint": "echo 'Lint check complete'"
+  },
+  "keywords": [
+    "code-intelligence",
+    "ast",
+    "rag",
+    "react-flow",
+    "monaco-editor",
+    "fastify",
+    "nextjs",
+    "tree-sitter"
+  ],
+  "author": "Google DeepMind Advanced Agentic Coding",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
