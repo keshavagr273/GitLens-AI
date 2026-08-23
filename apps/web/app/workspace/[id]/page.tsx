@@ -51,6 +51,7 @@ import { NodeInspector } from '@/features/graph/NodeInspector';
 import { OmnibarSearch } from '@/features/workspace/OmnibarSearch';
 import { CodeViewer } from '@/features/editor/CodeViewer';
 import { RequestFlowView } from '@/features/routes/RequestFlowView';
+import { ChatAssistantPane } from '@/features/chat/ChatAssistantPane';
 import { GraphNode, SourceFile, ApiRoute, RequestFlowHop, SymbolNode } from '@gitlens/shared-types';
 
 export default function WorkspacePage() {
@@ -496,108 +497,12 @@ export default function WorkspacePage() {
         </main>
 
         {/* RIGHT PANE: Grounded AI Assistant */}
-        <aside className="w-80 border-l border-slate-800/80 glass-panel flex flex-col shrink-0 z-20">
-          <div className="p-3 border-b border-slate-800/80 bg-slate-900/60 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-md bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-                <Bot className="h-3.5 w-3.5" />
-              </div>
-              <span className="font-semibold text-xs text-white">AI Code Assistant</span>
-            </div>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono">
-              Grounded
-            </span>
-          </div>
-
-          {/* Message Thread */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 text-xs">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`p-3 rounded-xl ${
-                  msg.role === 'user'
-                    ? 'bg-indigo-600/20 border border-indigo-500/30 text-indigo-100 ml-4'
-                    : 'bg-slate-900/80 border border-slate-800 text-slate-200 mr-2'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 mb-1.5 text-[10px] font-semibold text-slate-400 uppercase">
-                  {msg.role === 'user' ? 'You' : 'GitLens AI'}
-                </div>
-                <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-
-                {/* Evidence Citation Badges */}
-                {msg.citations && msg.citations.length > 0 && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-800 space-y-1">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
-                      Citations:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {msg.citations.map((c, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleOpenFile(c.file, [c.startLine, c.endLine])}
-                          className="px-2 py-1 rounded bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-[11px] font-mono text-cyan-300 flex items-center gap-1 transition-all"
-                        >
-                          <FileCode2 className="h-3 w-3" />
-                          <span>
-                            {c.file}:{c.startLine}-{c.endLine}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {chatLoading && (
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
-                <Activity className="h-3.5 w-3.5 animate-spin text-indigo-400" />
-                <span>Searching code graph & synthesizing evidence...</span>
-              </div>
-            )}
-          </div>
-
-          {/* Quick prompt suggestions */}
-          <div className="px-3 py-2 border-t border-slate-800/60 bg-slate-950/40 flex flex-wrap gap-1.5">
-            <button
-              onClick={() => handleSendChat('How does the order creation flow work?')}
-              className="text-[10px] px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200"
-            >
-              Order flow?
-            </button>
-            <button
-              onClick={() => handleSendChat('Where is authentication middleware implemented?')}
-              className="text-[10px] px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200"
-            >
-              Auth logic?
-            </button>
-          </div>
-
-          {/* Chat Input */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendChat();
-            }}
-            className="p-2 border-t border-slate-800/80 bg-slate-900/90 flex items-center gap-1.5"
-          >
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ask question about codebase..."
-              className="flex-1 bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            />
-            <button
-              type="submit"
-              disabled={chatLoading}
-              className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-50"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
-          </form>
-        </aside>
+        <ChatAssistantPane
+          messages={messages}
+          isLoading={chatLoading}
+          onSendMessage={(msg) => handleSendChat(msg)}
+          onOpenCitation={(filePath, lineRange) => handleOpenFile(filePath, lineRange)}
+        />
       </div>
 
       {/* 3. Omnibar Search Modal */}
