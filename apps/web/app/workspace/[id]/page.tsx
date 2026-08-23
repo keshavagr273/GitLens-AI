@@ -43,6 +43,7 @@ import {
   fetchTechnologies,
   sendChatMessage,
 } from '@/lib/api';
+import { FileTreeView } from '@/features/explorer/FileTreeView';
 import { GraphNode, SourceFile, ApiRoute, RequestFlowHop } from '@gitlens/shared-types';
 
 export default function WorkspacePage() {
@@ -312,30 +313,11 @@ export default function WorkspacePage() {
 
           <div className="flex-1 overflow-y-auto p-2 text-xs">
             {activeTab === 'files' && (
-              <div className="space-y-1">
-                {files.map((file) => {
-                  const isActive = activeFile?.id === file.id;
-                  return (
-                    <div
-                      key={file.id}
-                      onClick={() => handleOpenFile(file.id)}
-                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors ${
-                        isActive
-                          ? 'bg-indigo-600/20 border border-indigo-500/40 text-indigo-200'
-                          : 'hover:bg-slate-800/60 text-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        <FileCode2 className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-cyan-400' : 'text-slate-500'}`} />
-                        <span className="truncate font-mono text-[11px]">{file.path}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-mono shrink-0 ml-1">
-                        {file.language.slice(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <FileTreeView
+                files={files}
+                activeFileId={activeFile?.id}
+                onSelectFile={(fileId) => handleOpenFile(fileId)}
+              />
             )}
 
             {activeTab === 'routes' && (

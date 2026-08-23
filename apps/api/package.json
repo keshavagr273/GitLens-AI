@@ -15,6 +15,7 @@
     "@fastify/sensible": "^5.6.0",
     "@gitlens/config": "*",
     "@gitlens/database": "*",
+    "@gitlens/ingestion": "*",
     "@gitlens/shared-types": "*",
     "@gitlens/utils": "*",
     "fastify": "^4.26.2",

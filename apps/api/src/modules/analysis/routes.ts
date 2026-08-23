@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { db } from '@gitlens/database';
-import { AnalysisStage } from '@gitlens/shared-types';
-import { sleep } from '@gitlens/utils';
+import { AnalysisStage, AnalysisProgressEvent } from '@gitlens/shared-types';
+import { ingestionPipeline } from '@gitlens/ingestion';
 
 export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
   // 1. Dispatch asynchronous analysis job
@@ -13,6 +13,13 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const analysis = await db.createAnalysis(repo.id, 'HEAD');
+
+    // Trigger pipeline asynchronously in background
+    setTimeout(() => {
+      ingestionPipeline.run(repo.id, analysis.id).catch((err: any) => {
+        console.error('Background ingestion error:', err);
+      });
+    }, 50);
 
     return reply.status(202).send({
       message: 'Analysis job queued successfully',
@@ -45,53 +52,46 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
     reply.raw.setHeader('Access-Control-Allow-Origin', '*');
     reply.raw.flushHeaders();
 
-    const sendEvent = (stage: AnalysisStage, progress: number, processed: number, total: number, message: string) => {
-      const payload = {
-        analysisId: analysis.id,
-        stage,
-        progress,
-        processedFiles: processed,
-        totalFiles: total,
-        message,
-        timestamp: new Date().toISOString(),
-      };
-      reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+    const sendEvent = (event: AnalysisProgressEvent) => {
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
     };
 
     // If already completed, emit completed event immediately
     if (analysis.status === 'COMPLETED') {
-      sendEvent('COMPLETED', 1.0, analysis.totalFiles || 148, analysis.totalFiles || 148, 'Analysis completed.');
+      sendEvent({
+        analysisId: analysis.id,
+        stage: 'COMPLETED',
+        progress: 1.0,
+        processedFiles: analysis.totalFiles || 148,
+        totalFiles: analysis.totalFiles || 148,
+        message: 'Analysis already completed.',
+        timestamp: new Date().toISOString(),
+      });
       reply.raw.end();
       return;
     }
 
-    // Run staged progression simulation for the demo / worker run
-    const stages: Array<{ stage: AnalysisStage; progress: number; delay: number; message: string }> = [
-      { stage: 'FETCHING', progress: 0.15, delay: 300, message: 'Fetching Git tree at pinned HEAD commit SHA...' },
-      { stage: 'FILTERING', progress: 0.30, delay: 300, message: 'Filtering binary, vendor, and minified source files...' },
-      { stage: 'PARSING', progress: 0.55, delay: 400, message: 'Parsing ASTs and extracting symbols with Tree-sitter...' },
-      { stage: 'GRAPH', progress: 0.75, delay: 350, message: 'Building dependency graph and running Tarjan SCC cycle detection...' },
-      { stage: 'ROUTES', progress: 0.88, delay: 300, message: 'Detecting REST endpoints and composing router prefixes...' },
-      { stage: 'EMBEDDING', progress: 0.95, delay: 300, message: 'Generating AST semantic chunks & pgvector embeddings...' },
-      { stage: 'FINALIZING', progress: 1.0, delay: 200, message: 'Finalizing technology evidence and readying workspace...' },
-    ];
+    // Subscribe to live pipeline events
+    const unsubscribe = ingestionPipeline.subscribe(analysis.id, (event: AnalysisProgressEvent) => {
+      sendEvent(event);
+      if (event.stage === 'COMPLETED' || event.stage === 'FAILED') {
+        setTimeout(() => {
+          unsubscribe();
+          reply.raw.end();
+        }, 500);
+      }
+    });
 
-    const totalFiles = 148;
-    for (let i = 0; i < stages.length; i++) {
-      const item = stages[i];
-      await sleep(item.delay);
-      const processed = Math.floor(totalFiles * item.progress);
-      sendEvent(item.stage, item.progress, processed, totalFiles, item.message);
-      await db.updateAnalysisProgress(analysis.id, {
-        stage: item.stage,
-        progress: item.progress,
-        processedFiles: processed,
-        totalFiles,
-        status: item.stage === 'FINALIZING' ? 'COMPLETED' : 'RUNNING',
+    // If analysis was queued but not yet started, kick off run
+    if (analysis.status === 'QUEUED') {
+      ingestionPipeline.run(analysis.repositoryId, analysis.id).catch((err: any) => {
+        console.error('Ingestion run error:', err);
       });
     }
 
-    sendEvent('COMPLETED', 1.0, totalFiles, totalFiles, 'Analysis completed successfully!');
-    reply.raw.end();
+    request.raw.on('close', () => {
+      unsubscribe();
+    });
   });
 };
+
