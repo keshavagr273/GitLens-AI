@@ -10,6 +10,7 @@ import { apiRouteEndpoints } from './modules/routes/routes';
 import { chatRoutes } from './modules/chat/routes';
 import { symbolRoutes } from './modules/symbols/routes';
 import { searchRoutes } from './modules/search/routes';
+import { diagnosticsRoutes } from './modules/diagnostics/routes';
 
 export async function createServer() {
   const app = Fastify({
@@ -48,6 +49,7 @@ export async function createServer() {
   await app.register(chatRoutes);
   await app.register(symbolRoutes);
   await app.register(searchRoutes);
+  await app.register(diagnosticsRoutes);
 
   return app;
 }

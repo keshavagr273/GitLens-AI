@@ -21,6 +21,7 @@
     "@gitlens/parser-core": "*",
     "@gitlens/rag-core": "*",
     "@gitlens/shared-types": "*",
+    "@gitlens/telemetry": "*",
     "@gitlens/utils": "*",
     "fastify": "^4.26.2",
     "zod": "^3.23.8"

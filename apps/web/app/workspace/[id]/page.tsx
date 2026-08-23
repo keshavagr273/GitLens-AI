@@ -52,6 +52,7 @@ import { OmnibarSearch } from '@/features/workspace/OmnibarSearch';
 import { CodeViewer } from '@/features/editor/CodeViewer';
 import { RequestFlowView } from '@/features/routes/RequestFlowView';
 import { ChatAssistantPane } from '@/features/chat/ChatAssistantPane';
+import { DiagnosticsModal } from '@/features/workspace/DiagnosticsModal';
 import { GraphNode, SourceFile, ApiRoute, RequestFlowHop, SymbolNode } from '@gitlens/shared-types';
 
 export default function WorkspacePage() {
@@ -90,6 +91,7 @@ export default function WorkspacePage() {
   const [symbols, setSymbols] = useState<SymbolNode[]>([]);
   const [activeSymbolId, setActiveSymbolId] = useState<string | undefined>();
   const [isOmnibarOpen, setIsOmnibarOpen] = useState(false);
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [isCodeViewerExpanded, setIsCodeViewerExpanded] = useState(false);
@@ -304,6 +306,15 @@ export default function WorkspacePage() {
             <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
             <span>Explain Architecture</span>
           </button>
+          <button
+            onClick={() => setIsDiagnosticsOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-300 text-xs transition-colors shadow-inner"
+            title="System Diagnostics & Telemetry"
+          >
+            <Activity className="h-3.5 w-3.5 text-cyan-400" />
+            <span>Diagnostics</span>
+          </button>
+
           <Link
             href={repository?.githubUrl || '#'}
             target="_blank"
@@ -521,6 +532,16 @@ export default function WorkspacePage() {
             handleOpenFile(route.fileId, [route.startLine, route.startLine + 10]);
           }
         }}
+      />
+
+      {/* 4. System Diagnostics & Telemetry Modal */}
+      <DiagnosticsModal
+        isOpen={isDiagnosticsOpen}
+        onClose={() => setIsDiagnosticsOpen(false)}
+        nodes={graphNodes}
+        edges={graphEdges}
+        files={files}
+        routes={routes}
       />
     </div>
   );
