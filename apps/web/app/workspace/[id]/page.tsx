@@ -50,6 +50,7 @@ import { GraphCanvas } from '@/features/graph/GraphCanvas';
 import { NodeInspector } from '@/features/graph/NodeInspector';
 import { OmnibarSearch } from '@/features/workspace/OmnibarSearch';
 import { CodeViewer } from '@/features/editor/CodeViewer';
+import { RequestFlowView } from '@/features/routes/RequestFlowView';
 import { GraphNode, SourceFile, ApiRoute, RequestFlowHop, SymbolNode } from '@gitlens/shared-types';
 
 export default function WorkspacePage() {
@@ -468,64 +469,20 @@ export default function WorkspacePage() {
                 )}
               </div>
             ) : (
-              /* Request Flow Stepper View */
-              <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center justify-center">
-                <div className="w-full max-w-2xl bg-slate-900/80 rounded-2xl border border-slate-800 p-6 shadow-2xl">
-                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
-                    <div>
-                      <span className="text-[10px] font-mono uppercase text-indigo-400 font-bold">
-                        Trace Request Flow
-                      </span>
-                      <h3 className="font-bold text-lg text-white font-mono">
-                        {activeTrace?.method} {activeTrace?.path}
-                      </h3>
-                    </div>
-                    <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                      Static & Inferred Traversal
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {activeTrace?.hops.map((hop: RequestFlowHop, idx: number) => (
-                      <div
-                        key={hop.id}
-                        onClick={() => {
-                          if (hop.file) {
-                            handleOpenFile(hop.file, [hop.line || 1, (hop.line || 1) + 15]);
-                          }
-                        }}
-                        className="flex items-start gap-4 p-3.5 rounded-xl glass-panel hover:border-cyan-500/50 cursor-pointer transition-all group"
-                      >
-                        <div className="h-7 w-7 rounded-full bg-indigo-600/30 border border-indigo-400/50 flex items-center justify-center text-xs font-mono font-bold text-indigo-300 shrink-0 mt-0.5">
-                          {idx + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-semibold text-sm text-white group-hover:text-cyan-300 transition-colors">
-                              {hop.label}
-                            </span>
-                            <span
-                              className={`text-[10px] font-mono px-2 py-0.5 rounded ${
-                                hop.confidence === 'static'
-                                  ? 'bg-emerald-500/20 text-emerald-300'
-                                  : 'bg-amber-500/20 text-amber-300'
-                              }`}
-                            >
-                              {hop.confidence.toUpperCase()} ({(hop.confidenceScore * 100).toFixed(0)}%)
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-400 mb-1.5">{hop.details}</p>
-                          {hop.file && (
-                            <span className="text-[11px] font-mono text-indigo-300 underline">
-                              {hop.file}:{hop.line}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <RequestFlowView
+                routes={routes}
+                selectedRoute={selectedRoute}
+                activeTrace={activeTrace}
+                onSelectRoute={async (route) => {
+                  setSelectedRoute(route);
+                  const trace = await traceRequestFlow(repoId, route.id);
+                  setActiveTrace(trace);
+                  if (route.fileId) {
+                    handleOpenFile(route.fileId, [route.startLine, route.startLine + 10]);
+                  }
+                }}
+                onOpenSource={(path, range) => handleOpenFile(path, range)}
+              />
             )}
           </div>
 

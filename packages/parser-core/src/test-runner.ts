@@ -1,6 +1,7 @@
 import { parseSymbols, calculateComplexity } from './symbol-parser';
 import { extractImports, resolveImportPath } from './import-resolver';
 import { extractCallEdges, extractHeritageEdges } from './call-graph';
+import { detectRoutes, extractMountPrefixes } from './route-detector';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -10,7 +11,7 @@ function assert(condition: boolean, message: string) {
   console.log(`✅ ${message}`);
 }
 
-console.log('🧪 Starting Phase 2 Parser-Core Quality Test Suite...\n');
+console.log('🧪 Starting Phase 2 & 4 Parser-Core Quality Test Suite...\n');
 
 // 1. Symbol Extraction Tests (CP-2.1)
 console.log('--- CP-2.1: AST Symbol Extraction & Metrics ---');
@@ -116,4 +117,48 @@ const brokenCode = `function invalidSyntax( { let x = ;`;
 const faultResult = parseSymbols('file-corrupted', brokenCode);
 assert(Array.isArray(faultResult.symbols), 'Fault boundary handled corrupted syntax without unhandled exception');
 
-console.log('\n🎉 ALL PHASE 2 PARSER-CORE TESTS PASSED CLEANLY!\n');
+// 5. Multi-Framework Route Detection Tests (CP-4.1)
+console.log('\n--- CP-4.1: Multi-Framework API Route Extraction ---');
+
+// Fastify Route Detection
+const fastifyCode = `
+fastify.get('/api/v1/health', async (request, reply) => {
+  return { status: 'ok' };
+});
+
+fastify.post('/api/v1/orders', { schema: orderSchema }, [authenticate], OrderController.create);
+`;
+const fastifyRoutes = detectRoutes('file-fastify', 'src/routes/orders.ts', fastifyCode);
+assert(fastifyRoutes.length === 2, `Fastify detector found ${fastifyRoutes.length} routes (2 expected)`);
+const fastifyPost = fastifyRoutes.find((r) => r.method === 'POST');
+assert(fastifyPost?.path === '/api/v1/orders', 'Fastify route path matched /api/v1/orders');
+assert(fastifyPost?.handlerName === 'OrderController.create', 'Fastify controller handler matched');
+assert(!!fastifyPost?.middleware.includes('authenticate'), 'Fastify middleware extracted');
+
+// Express Route Detection + Mount Prefix Composition
+const expressCode = `
+router.get('/profile', [jwtAuth], UserController.getProfile);
+router.post('/login', AuthController.login);
+`;
+const expressRoutes = detectRoutes('file-express', 'src/routes/user.ts', expressCode, [
+  { prefix: '/api/v2/users', routerName: 'userRouter', sourceFile: 'src/routes/user.ts' },
+]);
+assert(expressRoutes.length === 2, `Express detector found ${expressRoutes.length} routes`);
+const expressGet = expressRoutes.find((r) => r.method === 'GET');
+assert(expressGet?.path === '/api/v2/users/profile', `Express composed mount prefix to ${expressGet?.path}`);
+
+// Next.js App Router Route Detection
+const nextCode = `
+export async function GET(request: Request) {
+  return Response.json({ status: 'healthy' });
+}
+
+export async function POST(request: Request) {
+  return Response.json({ success: true });
+}
+`;
+const nextRoutes = detectRoutes('file-next', 'app/api/orders/[id]/route.ts', nextCode);
+assert(nextRoutes.length === 2, `Next.js detector found ${nextRoutes.length} exported route handlers`);
+assert(nextRoutes[0].path === '/api/orders/:id', `Next.js normalized route path to ${nextRoutes[0].path}`);
+
+console.log('\n🎉 ALL PHASE 2 & 4 PARSER-CORE TESTS PASSED CLEANLY!\n');
