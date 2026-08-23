@@ -1,8 +1,10 @@
 import { findStronglyConnectedComponents } from './tarjan-scc';
 import { computePageRank, computeCompositeImportance } from './pagerank';
-import { buildCodeGraph } from './builder';
 import { traceRequestFlow } from './request-flow-tracer';
-import { ApiRoute, SymbolNode } from '@gitlens/shared-types';
+import { detectArchitecturalSmells } from './smell-detector';
+import { calculateArchitectureHealthScore } from './health-score';
+import { analyzeChangeImpact } from './impact-analyzer';
+import { ApiRoute, SymbolNode, GraphNode, GraphEdge } from '@gitlens/shared-types';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -12,7 +14,7 @@ function assert(condition: boolean, message: string) {
   console.log(`✅ ${message}`);
 }
 
-console.log('🧪 Starting Phase 2 & 4 Graph-Core Quality Test Suite...\n');
+console.log('🧪 Starting Graph-Core Quality & Advanced Architecture Test Suite...\n');
 
 // 1. Tarjan SCC Cycle Detection Tests (CP-2.4)
 console.log('--- CP-2.4: Tarjan SCC Cycle Detection ---');
@@ -132,8 +134,48 @@ assert(trace.hops[1].label.includes('authenticateJwt'), 'Hop 2 is Middleware inv
 assert(trace.hops[2].label.includes('Controller'), 'Hop 3 is Controller handler execution');
 assert(trace.hops[3].label.includes('Service'), 'Hop 4 is Service domain execution');
 assert(trace.hops[trace.hops.length - 1].label.includes('Database'), 'Final hop is Database persistence');
-
-// Verify confidence scores
 assert(trace.hops[0].confidence === 'static' && trace.hops[0].confidenceScore === 1.0, 'Static hop has confidence 1.0');
 
-console.log('\n🎉 ALL PHASE 2 & 4 GRAPH-CORE TESTS PASSED CLEANLY!\n');
+// 4. Milestone 9: Architectural Smell & Layer Violation Detector
+console.log('\n--- Milestone 9: Architectural Smell Detector ---');
+
+const mockGraphNodes: GraphNode[] = [
+  { id: 'node-ctrl', type: 'symbol', name: 'OrderController', path: 'src/controllers/order.controller.ts' },
+  { id: 'node-db', type: 'database_table', name: 'orders_table' },
+  { id: 'node-orphan', type: 'symbol', name: 'unusedHelper' },
+];
+
+const mockGraphEdges: GraphEdge[] = [
+  {
+    id: 'e-violation',
+    analysisId: 'a-1',
+    sourceId: 'node-ctrl',
+    targetId: 'node-db',
+    type: 'CALLS',
+    confidence: 'static',
+  },
+];
+
+const smells = detectArchitecturalSmells(mockGraphNodes, mockGraphEdges);
+assert(smells.length >= 2, `Detected ${smells.length} architectural smells (>= 2 expected)`);
+const layerViolation = smells.find((s) => s.type === 'layer_violation');
+assert(!!layerViolation, 'Detected direct Controller ➔ Database layer violation');
+const orphanSmell = smells.find((s) => s.type === 'orphaned_component');
+assert(!!orphanSmell, 'Detected dead code / orphaned component');
+
+// 5. Milestone 9: Architecture Health Score Engine
+console.log('\n--- Milestone 9: Architecture Health Score Engine ---');
+
+const healthReport = calculateArchitectureHealthScore(mockGraphNodes, mockGraphEdges);
+assert(healthReport.score > 0 && healthReport.score <= 100, `Calculated health score: ${healthReport.score}/100`);
+assert(['A', 'B', 'C', 'D', 'F'].includes(healthReport.grade), `Assigned valid health grade: ${healthReport.grade}`);
+assert(healthReport.criticalViolationCount === 1, 'Reported 1 critical layer violation');
+
+// 6. Milestone 9: PR / Change Impact Analyzer
+console.log('\n--- Milestone 9: PR Change Impact Analyzer ---');
+
+const impact = analyzeChangeImpact(['src/db/order.repo.ts', 'node-db'], mockGraphNodes, mockGraphEdges, [testRoute]);
+assert(impact.affectedNodeIds.length >= 1, `Calculated blast radius affected ${impact.affectedNodeIds.length} nodes`);
+assert(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(impact.riskLevel), `Computed risk level: ${impact.riskLevel}`);
+
+console.log('\n🎉 ALL GRAPH-CORE & ADVANCED ARCHITECTURE TESTS PASSED CLEANLY!\n');

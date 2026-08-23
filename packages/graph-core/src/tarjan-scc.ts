@@ -67,3 +67,17 @@ export function findStronglyConnectedComponents(
     hasCycles: cycles.length > 0,
   };
 }
+
+export function findCyclesTarjan(nodes: { id: string }[], edges: { sourceId: string; targetId: string }[]): string[][] {
+  const adj = new Map<string, string[]>();
+  for (const n of nodes) {
+    adj.set(n.id, []);
+  }
+  for (const e of edges) {
+    const list = adj.get(e.sourceId) || [];
+    list.push(e.targetId);
+    adj.set(e.sourceId, list);
+  }
+  const result = findStronglyConnectedComponents(adj);
+  return result.cycles;
+}

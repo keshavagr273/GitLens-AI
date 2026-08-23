@@ -1,0 +1,31 @@
+# Stage 1: Base & Dependencies
+FROM node:20-alpine AS base
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+COPY package*.json ./
+COPY packages/ ./packages/
+COPY workers/ ./workers/
+COPY tsconfig.base.json ./
+RUN npm ci
+
+# Stage 2: Builder
+FROM base AS builder
+WORKDIR /app
+RUN npm run build:packages
+RUN npm --workspace=@gitlens/analyzer run build
+
+# Stage 3: Production Runner
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 gitlens
+
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/workers/analyzer/dist ./workers/analyzer/dist
+COPY --from=builder /app/workers/analyzer/package.json ./workers/analyzer/package.json
+
+USER gitlens
+CMD ["node", "workers/analyzer/dist/worker.js"]

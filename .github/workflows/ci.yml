@@ -1,0 +1,46 @@
+name: GitLens AI CI Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Strict Typecheck
+        run: npm run typecheck
+
+      - name: Run Test Suites (Phase 2 & 4)
+        run: npm run test:phase2
+
+      - name: Run Test Suites (Phase 5 - RAG & Vector Engine)
+        run: npm run test:phase5
+
+      - name: Run Test Suites (Phase 6 - AI Assistant & Guardrails)
+        run: npm run test:phase6
+
+      - name: Run Test Suites (Phase 7 - Telemetry & Caching)
+        run: npm run test:phase7
+
+      - name: Build Monorepo Artifacts
+        run: npm run build
