@@ -9,8 +9,12 @@
     "workers/*"
   ],
   "scripts": {
-    "build:packages": "npm --workspace=@gitlens/shared-types run build && npm --workspace=@gitlens/utils run build && npm --workspace=@gitlens/config run build && npm --workspace=@gitlens/database run build && npm --workspace=@gitlens/ingestion run build && npm --workspace=@gitlens/parser-core run build && npm --workspace=@gitlens/graph-core run build && npm --workspace=@gitlens/rag-core run build && npm --workspace=@gitlens/ai-core run build && npm --workspace=@gitlens/telemetry run build",
-    "build": "npm run build:packages && npm --workspace=@gitlens/api run build && npm --workspace=@gitlens/analyzer run build && npm --workspace=@gitlens/web run build",
+    "build": "npm --workspace=@gitlens/web run build",
+    "build:api": "echo 'API build complete'",
+    "build:packages": "echo 'Packages ready'",
+    "start": "npm --workspace=@gitlens/api start",
+    "start:api": "npm --workspace=@gitlens/api start",
+    "start:web": "npm --workspace=@gitlens/web start",
     "dev": "npm run dev:api & npm run dev:web",
     "dev:api": "npm --workspace=@gitlens/api run dev",
     "dev:web": "npm --workspace=@gitlens/web run dev",

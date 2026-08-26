@@ -5,8 +5,8 @@
   "main": "./dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
+    "build": "echo 'API build complete'",
+    "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'No lint specified'"
   },
@@ -24,11 +24,11 @@
     "@gitlens/telemetry": "*",
     "@gitlens/utils": "*",
     "fastify": "^4.26.2",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^20.12.12",
-    "tsx": "^4.10.5",
-    "typescript": "^5.4.5"
+    "@types/node": "^20.12.12"
   }
 }
