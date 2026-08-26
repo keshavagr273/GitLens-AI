@@ -45,7 +45,8 @@ export function DiagnosticsModal({
 
   useEffect(() => {
     if (isOpen) {
-      fetch('http://localhost:3001/api/diagnostics')
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      fetch(`${apiBase}/api/diagnostics`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data) setDiagnostics(data);

@@ -19,11 +19,18 @@ export async function createServer() {
     },
   });
 
-  // Plugins
+  // Configurable CORS Plugin
+  const allowedOrigins =
+    config.CORS_ORIGIN === '*'
+      ? true
+      : config.CORS_ORIGIN.split(',').map((s) => s.trim());
+
   await app.register(cors, {
-    origin: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
   });
 
   await app.register(sensible);

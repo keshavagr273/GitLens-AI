@@ -23,6 +23,7 @@ const envSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   NEXT_PUBLIC_API_URL: z.string().default('http://localhost:3001'),
+  CORS_ORIGIN: z.string().default('*'),
 
   DATABASE_URL: z
     .string()
