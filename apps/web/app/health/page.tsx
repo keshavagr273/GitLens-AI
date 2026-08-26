@@ -22,7 +22,7 @@ export default function HealthPage() {
     setLoading(true);
     setError(null);
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
       const res = await fetch(`${apiBase}/health`);
       if (!res.ok) throw new Error('API server returned error');
       const data = await res.json();

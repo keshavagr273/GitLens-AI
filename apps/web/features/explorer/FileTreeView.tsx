@@ -58,6 +58,22 @@ export function FileTreeView({ files, activeFileId, onSelectFile }: Props) {
     setExpanded((prev) => ({ ...prev, [path]: !prev[path] }));
   };
 
+  const expandAll = () => {
+    const all: Record<string, boolean> = {};
+    const traverse = (node: TreeNode) => {
+      if (node.isFolder) {
+        all[node.path] = true;
+        Object.values(node.children).forEach(traverse);
+      }
+    };
+    traverse(tree);
+    setExpanded(all);
+  };
+
+  const collapseAll = () => {
+    setExpanded({ '': true });
+  };
+
   const renderNode = (node: TreeNode, depth = 0) => {
     if (node.isFolder) {
       const isExpanded = expanded[node.path] ?? depth < 2;
@@ -124,5 +140,26 @@ export function FileTreeView({ files, activeFileId, onSelectFile }: Props) {
     );
   };
 
-  return <div className="space-y-0.5">{renderNode(tree)}</div>;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between px-1 pb-1.5 border-b border-white/8">
+        <span className="text-[10px] text-[#a09f9c] font-mono">Files ({files.length})</span>
+        <div className="flex items-center gap-1 font-mono">
+          <button
+            onClick={expandAll}
+            className="text-[9px] px-2 py-0.5 rounded-[2px] bg-[#141312] border border-white/8 text-[#a09f9c] hover:text-[#f5f3ee] hover:border-[#e8a33d]/40 transition-colors"
+          >
+            Expand
+          </button>
+          <button
+            onClick={collapseAll}
+            className="text-[9px] px-2 py-0.5 rounded-[2px] bg-[#141312] border border-white/8 text-[#a09f9c] hover:text-[#f5f3ee] hover:border-[#e8a33d]/40 transition-colors"
+          >
+            Collapse
+          </button>
+        </div>
+      </div>
+      <div className="space-y-0.5">{renderNode(tree)}</div>
+    </div>
+  );
 }
