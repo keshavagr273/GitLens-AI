@@ -27,7 +27,6 @@ export function FileTreeView({ files, activeFileId, onSelectFile }: Props) {
     'src/services': true,
   });
 
-  // Build tree from file paths
   const tree = useMemo(() => {
     const root: TreeNode = { name: '', path: '', isFolder: true, children: {} };
 
@@ -65,27 +64,27 @@ export function FileTreeView({ files, activeFileId, onSelectFile }: Props) {
       const childCount = Object.keys(node.children).length;
 
       return (
-        <div key={node.path} className="select-none">
+        <div key={node.path} className="select-none font-mono text-xs">
           {node.name && (
             <div
               onClick={() => toggleFolder(node.path)}
-              style={{ paddingLeft: `${depth * 12 + 6}px` }}
-              className="flex items-center justify-between py-1.5 pr-2 rounded-lg cursor-pointer hover:bg-slate-800/60 text-slate-300 hover:text-white transition-colors group"
+              style={{ paddingLeft: `${depth * 10 + 4}px` }}
+              className="flex items-center justify-between py-1 pr-1.5 rounded-[2px] cursor-pointer hover:bg-white/5 text-[#a09f9c] hover:text-[#f5f3ee] transition-colors group"
             >
               <div className="flex items-center gap-1.5 truncate">
                 {isExpanded ? (
-                  <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-300 shrink-0" />
+                  <ChevronDown className="h-3 w-3 text-[#4b5563] group-hover:text-[#a09f9c] shrink-0" />
                 ) : (
-                  <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-300 shrink-0" />
+                  <ChevronRight className="h-3 w-3 text-[#4b5563] group-hover:text-[#a09f9c] shrink-0" />
                 )}
                 {isExpanded ? (
-                  <FolderOpen className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                  <FolderOpen className="h-3.5 w-3.5 text-[#e8a33d] shrink-0" />
                 ) : (
-                  <Folder className="h-3.5 w-3.5 text-indigo-400/80 shrink-0" />
+                  <Folder className="h-3.5 w-3.5 text-[#e8a33d]/70 shrink-0" />
                 )}
-                <span className="font-mono text-[11px] font-medium truncate">{node.name}</span>
+                <span className="text-[11px] font-medium truncate">{node.name}</span>
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">{childCount}</span>
+              <span className="text-[9px] text-[#4b5563] px-1 py-0.2 rounded bg-[#0a0a0b]">{childCount}</span>
             </div>
           )}
 
@@ -105,19 +104,19 @@ export function FileTreeView({ files, activeFileId, onSelectFile }: Props) {
       <div
         key={node.path}
         onClick={() => node.file && onSelectFile(node.file.id)}
-        style={{ paddingLeft: `${depth * 12 + 18}px` }}
-        className={`flex items-center justify-between py-1.5 pr-2 rounded-lg cursor-pointer transition-colors ${
+        style={{ paddingLeft: `${depth * 10 + 14}px` }}
+        className={`flex items-center justify-between py-1 pr-2 rounded-[2px] cursor-pointer transition-all font-mono text-xs ${
           isActive
-            ? 'bg-indigo-600/20 border border-indigo-500/40 text-indigo-200 font-medium'
-            : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'
+            ? 'bg-[#141312] border border-[#e8a33d] text-[#f5f3ee] font-semibold'
+            : 'hover:bg-white/5 text-[#a09f9c] hover:text-[#f5f3ee] border border-transparent'
         }`}
       >
         <div className="flex items-center gap-1.5 truncate">
-          <FileCode2 className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-cyan-400' : 'text-slate-500'}`} />
-          <span className="truncate font-mono text-[11px]">{node.name}</span>
+          <FileCode2 className={`h-3 w-3 shrink-0 ${isActive ? 'text-[#e8a33d]' : 'text-[#4b5563]'}`} />
+          <span className="truncate text-[11px]">{node.name}</span>
         </div>
         {node.file && (
-          <span className="text-[9px] text-slate-500 font-mono shrink-0 ml-1">
+          <span className="text-[9px] text-[#4b5563] shrink-0 ml-1">
             {(node.file.sizeBytes / 1024).toFixed(1)}k
           </span>
         )}

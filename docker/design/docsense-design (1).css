@@ -1,0 +1,83 @@
+:root {
+  /* Colors */
+  --color-surface-base: #0a0a0b;
+  --color-surface-card: #141312;
+  --color-surface-code: #1f2937;
+  --color-text-primary: #f5f3ee;
+  --color-text-muted: #a09f9c;
+  --color-text-subtle: #4b5563;
+  --color-amber-accent: #e8a33d;
+  --color-border-subtle: #e5e7eb;
+  --color-pure-black: #000000;
+  --color-surface-base: #0a0a0b;
+  --color-text-primary: #f5f3ee;
+  --color-text-muted: #a09f9c;
+  --color-amber-accent: #e8a33d;
+  --color-border-subtle: #e5e7eb;
+  --color-surface-code: #1f2937;
+
+  /* Typography */
+  --font-hero-display-family: Fraunces;
+  --font-hero-display-size: 60px;
+  --font-hero-display-weight: 400;
+  --font-hero-display-line-height: 60px;
+  --font-section-heading-large-family: Fraunces;
+  --font-section-heading-large-size: 30px;
+  --font-section-heading-large-weight: 400;
+  --font-section-heading-large-line-height: 41.25px;
+  --font-section-heading-medium-family: Fraunces;
+  --font-section-heading-medium-size: 24px;
+  --font-section-heading-medium-weight: 400;
+  --font-section-heading-medium-line-height: 32px;
+  --font-card-heading-family: Fraunces;
+  --font-card-heading-size: 20px;
+  --font-card-heading-weight: 400;
+  --font-card-heading-line-height: 28px;
+  --font-heading-bold-family: Fraunces;
+  --font-heading-bold-size: 18px;
+  --font-heading-bold-weight: 700;
+  --font-heading-bold-line-height: 28px;
+  --font-heading-bold-letter-spacing: -0.45px;
+  --font-body-default-family: Inter;
+  --font-body-default-size: 16px;
+  --font-body-default-weight: 400;
+  --font-body-default-line-height: 24px;
+  --font-body-small-family: Inter;
+  --font-body-small-size: 14px;
+  --font-body-small-weight: 400;
+  --font-body-small-line-height: 22.75px;
+  --font-label-mono-family: JetBrains Mono;
+  --font-label-mono-size: 10px;
+  --font-label-mono-weight: 400;
+  --font-label-mono-line-height: 15px;
+  --font-label-mono-letter-spacing: 1px;
+  --font-label-mono-semibold-family: JetBrains Mono;
+  --font-label-mono-semibold-size: 12px;
+  --font-label-mono-semibold-weight: 600;
+  --font-label-mono-semibold-line-height: 16px;
+  --font-label-mono-semibold-letter-spacing: 0.6px;
+  --font-caption-mono-family: JetBrains Mono;
+  --font-caption-mono-size: 9px;
+  --font-caption-mono-weight: 400;
+  --font-caption-mono-line-height: 13.5px;
+
+  /* Spacing */
+  --spacing-space-1: 4px;
+  --spacing-space-2: 8px;
+  --spacing-space-3: 12px;
+  --spacing-space-4: 16px;
+  --spacing-space-6: 24px;
+  --spacing-space-8: 32px;
+  --spacing-space-12: 48px;
+  --spacing-space-16: 64px;
+  --spacing-space-20: 80px;
+  --spacing-space-26: 104px;
+  --spacing-space-32: 128px;
+
+  /* Border Radius */
+  --radius-radius-xs: 2px;
+  --radius-radius-sm: 4px;
+  --radius-radius-md: 6px;
+  --radius-radius-lg: 8px;
+
+}

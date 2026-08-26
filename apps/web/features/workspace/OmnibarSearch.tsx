@@ -6,10 +6,8 @@ import {
   FileCode2,
   Code2,
   Box,
-  Layers,
   Zap,
   Cpu,
-  ArrowRight,
   X,
   CornerDownLeft,
 } from 'lucide-react';
@@ -50,7 +48,6 @@ export function OmnibarSearch({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus input when modal opens
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -58,15 +55,11 @@ export function OmnibarSearch({
     }
   }, [isOpen]);
 
-  // Handle global Cmd+K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         if (isOpen) onClose();
-        else {
-          // Open triggered via prop
-        }
       } else if (e.key === 'Escape' && isOpen) {
         onClose();
       }
@@ -75,10 +68,8 @@ export function OmnibarSearch({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Aggregate and filter search results
   const results: SearchResultItem[] = React.useMemo(() => {
     if (!query.trim()) {
-      // Default top suggestions
       return [
         ...files.slice(0, 3).map((f) => ({
           id: `file-${f.id}`,
@@ -184,7 +175,6 @@ export function OmnibarSearch({
     return items.slice(0, 15);
   }, [query, files, symbols, routes, technologies, onOpenSource, onSelectRoute, onClose]);
 
-  // Handle arrow keys
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -203,11 +193,11 @@ export function OmnibarSearch({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-2xl rounded-2xl glass-panel-elevated shadow-2xl border border-indigo-500/30 overflow-hidden flex flex-col text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 bg-black/80 backdrop-blur-md animate-in fade-in font-mono">
+      <div className="w-full max-w-2xl rounded-[4px] bg-[#141312] border border-white/10 shadow-2xl overflow-hidden flex flex-col text-[#f5f3ee]">
         {/* Search Input Bar */}
-        <div className="p-3.5 border-b border-slate-800 flex items-center gap-3 bg-slate-900/90">
-          <Search className="h-5 w-5 text-indigo-400 shrink-0" />
+        <div className="p-3.5 border-b border-white/8 flex items-center gap-3 bg-[#0a0a0b]">
+          <Search className="h-4 w-4 text-[#e8a33d] shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -217,12 +207,12 @@ export function OmnibarSearch({
               setSelectedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Search files, symbols, routes, or database schemas... (e.g. OrderService, POST /orders)"
-            className="w-full bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none"
+            placeholder="Search files, symbols, routes, schemas... (e.g. OrderService, POST /orders)"
+            className="w-full bg-transparent text-xs text-[#f5f3ee] placeholder-[#4b5563] focus:outline-none font-mono"
           />
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1 rounded text-[#a09f9c] hover:text-[#f5f3ee] transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -231,7 +221,7 @@ export function OmnibarSearch({
         {/* Results List */}
         <div className="max-h-96 overflow-y-auto p-2 space-y-1">
           {results.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">
+            <div className="p-8 text-center text-xs text-[#a09f9c]">
               No matching files, symbols, or routes found for &ldquo;{query}&rdquo;.
             </div>
           ) : (
@@ -244,38 +234,38 @@ export function OmnibarSearch({
                   key={item.id}
                   onClick={item.action}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`p-2.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${
+                  className={`p-2.5 rounded-[3px] cursor-pointer flex items-center justify-between transition-all ${
                     isSelected
-                      ? 'bg-indigo-600/30 border border-indigo-500/40 text-white'
-                      : 'hover:bg-slate-900/60 text-slate-300'
+                      ? 'bg-[#0a0a0b] border border-[#e8a33d] text-[#f5f3ee]'
+                      : 'hover:bg-white/5 text-[#a09f9c] border border-transparent'
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      className={`h-7 w-7 rounded-[2px] flex items-center justify-center shrink-0 ${
                         isSelected
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-800 text-slate-400'
+                          ? 'bg-[#141312] text-[#e8a33d] border border-[#e8a33d]/40'
+                          : 'bg-[#0a0a0b] text-[#4b5563] border border-white/5'
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-mono font-semibold text-white truncate">
+                      <p className="text-xs font-mono font-semibold text-[#f5f3ee] truncate">
                         {item.title}
                       </p>
-                      <p className="text-[11px] text-slate-400 truncate">{item.subtitle}</p>
+                      <p className="text-[10px] text-[#a09f9c] truncate">{item.subtitle}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
                     {item.badge && (
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">
+                      <span className="text-[9px] font-mono px-2 py-0.2 rounded-[2px] bg-[#0a0a0b] text-[#e8a33d] border border-[#e8a33d]/30">
                         {item.badge}
                       </span>
                     )}
                     {isSelected && (
-                      <CornerDownLeft className="h-3.5 w-3.5 text-indigo-400" />
+                      <CornerDownLeft className="h-3 w-3 text-[#e8a33d]" />
                     )}
                   </div>
                 </div>
@@ -285,11 +275,11 @@ export function OmnibarSearch({
         </div>
 
         {/* Footer hints */}
-        <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-950/60 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+        <div className="px-4 py-2 border-t border-white/8 bg-[#0a0a0b] flex items-center justify-between text-[9px] text-[#4b5563] font-mono">
           <div className="flex items-center gap-3">
-            <span>↑↓ to navigate</span>
-            <span>↵ to select</span>
-            <span>esc to close</span>
+            <span>↑↓ navigate</span>
+            <span>↵ select</span>
+            <span>esc close</span>
           </div>
           <span>{results.length} results</span>
         </div>

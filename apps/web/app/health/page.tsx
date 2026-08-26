@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, Server, Database, Layers, Radio } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, Server, Database, Radio } from 'lucide-react';
 
 interface HealthData {
   status: string;
@@ -39,79 +39,87 @@ export default function HealthPage() {
   }, []);
 
   return (
-    <div className="min-h-screen p-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-800">
+    <div className="min-h-screen p-8 max-w-4xl mx-auto bg-[#0a0a0b] text-[#f5f3ee] font-sans selection:bg-[#e8a33d]/30 selection:text-[#f5f3ee]">
+      <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/8">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg glass-panel hover:border-slate-700 transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-mono text-[#a09f9c] hover:text-[#f5f3ee] px-3.5 py-1.5 rounded-[3px] bg-[#141312] border border-white/8 hover:border-[#e8a33d]/40 transition-colors uppercase tracking-wider"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           <span>Back to Landing</span>
         </Link>
         <button
           onClick={fetchHealth}
           disabled={loading}
-          className="inline-flex items-center gap-2 text-xs text-indigo-300 hover:text-white px-3 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/30 transition-colors"
+          className="btn-amber px-4 py-1.5 text-xs"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
         </button>
       </div>
 
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
-          <Server className="h-6 w-6 text-indigo-400" />
+        <h1 className="font-serif text-3xl font-normal text-[#f5f3ee] mb-2 flex items-center gap-3">
+          <div className="h-8 w-8 rounded-[3px] bg-[#141312] border border-[#e8a33d] flex items-center justify-center text-[#e8a33d]">
+            <Server className="h-4 w-4" />
+          </div>
           <span>System Diagnostic & Health Status</span>
         </h1>
-        <p className="text-xs text-slate-400">Real-time status of backend services, queues, and database engines.</p>
+        <p className="text-xs text-[#a09f9c] font-normal">Real-time status of backend services, queues, and database engines.</p>
       </div>
 
       {loading && !health ? (
-        <div className="p-8 rounded-2xl glass-panel text-center text-slate-400 text-sm">
+        <div className="p-8 rounded-[4px] bg-[#141312] border border-white/8 text-center text-[#a09f9c] text-xs font-mono">
           Checking microservice endpoints...
         </div>
       ) : error ? (
-        <div className="p-6 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+        <div className="p-5 rounded-[4px] bg-red-950/40 border border-red-800/40 text-red-300 text-xs flex items-start gap-3">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
           <div>
-            <p className="font-semibold">Backend Unreachable</p>
-            <p className="text-xs text-red-400/80 mt-1">{error}</p>
+            <p className="font-semibold font-mono">Backend Unreachable</p>
+            <p className="text-xs text-red-400/80 mt-1 font-mono">{error}</p>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl glass-panel border border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <Server className="h-5 w-5 text-indigo-400" />
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-5 rounded-[4px] bg-[#141312] border border-white/8 hover:border-[#e8a33d]/40 transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <div className="h-8 w-8 rounded-[3px] bg-[#0a0a0b] border border-white/10 flex items-center justify-center text-[#e8a33d]">
+                <Server className="h-4 w-4" />
+              </div>
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             </div>
-            <h3 className="font-semibold text-white text-sm mb-1">Fastify API Server</h3>
-            <p className="text-xs text-slate-400 mb-3">Core HTTP & SSE Gateway</p>
-            <div className="text-[11px] font-mono px-2 py-1 rounded bg-slate-900 text-emerald-400 border border-slate-800 inline-block">
+            <h3 className="font-mono font-semibold text-[#f5f3ee] text-xs mb-1 uppercase tracking-wider">Fastify API Server</h3>
+            <p className="text-[11px] text-[#a09f9c] mb-3">Core HTTP & SSE Gateway</p>
+            <div className="text-[10px] font-mono px-2.5 py-0.5 rounded-[2px] bg-emerald-950/40 text-emerald-400 border border-emerald-800/40 inline-block font-semibold">
               {health?.status.toUpperCase()}
             </div>
           </div>
 
-          <div className="p-6 rounded-2xl glass-panel border border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <Database className="h-5 w-5 text-cyan-400" />
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+          <div className="p-5 rounded-[4px] bg-[#141312] border border-white/8 hover:border-[#e8a33d]/40 transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <div className="h-8 w-8 rounded-[3px] bg-[#0a0a0b] border border-white/10 flex items-center justify-center text-[#e8a33d]">
+                <Database className="h-4 w-4" />
+              </div>
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             </div>
-            <h3 className="font-semibold text-white text-sm mb-1">Database Engine</h3>
-            <p className="text-xs text-slate-400 mb-3">{health?.database.mode}</p>
-            <div className="text-[11px] font-mono px-2 py-1 rounded bg-slate-900 text-cyan-400 border border-slate-800 inline-block">
+            <h3 className="font-mono font-semibold text-[#f5f3ee] text-xs mb-1 uppercase tracking-wider">Database Engine</h3>
+            <p className="text-[11px] text-[#a09f9c] mb-3">{health?.database.mode}</p>
+            <div className="text-[10px] font-mono px-2.5 py-0.5 rounded-[2px] bg-emerald-950/40 text-emerald-400 border border-emerald-800/40 inline-block font-semibold">
               {health?.database.status.toUpperCase()}
             </div>
           </div>
 
-          <div className="p-6 rounded-2xl glass-panel border border-slate-800">
-            <div className="flex items-center justify-between mb-4">
-              <Radio className="h-5 w-5 text-emerald-400" />
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+          <div className="p-5 rounded-[4px] bg-[#141312] border border-white/8 hover:border-[#e8a33d]/40 transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <div className="h-8 w-8 rounded-[3px] bg-[#0a0a0b] border border-white/10 flex items-center justify-center text-[#e8a33d]">
+                <Radio className="h-4 w-4" />
+              </div>
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             </div>
-            <h3 className="font-semibold text-white text-sm mb-1">SSE Progress Bus</h3>
-            <p className="text-xs text-slate-400 mb-3">{health?.redis.mode}</p>
-            <div className="text-[11px] font-mono px-2 py-1 rounded bg-slate-900 text-emerald-400 border border-slate-800 inline-block">
+            <h3 className="font-mono font-semibold text-[#f5f3ee] text-xs mb-1 uppercase tracking-wider">SSE Progress Bus</h3>
+            <p className="text-[11px] text-[#a09f9c] mb-3">{health?.redis.mode}</p>
+            <div className="text-[10px] font-mono px-2.5 py-0.5 rounded-[2px] bg-emerald-950/40 text-emerald-400 border border-emerald-800/40 inline-block font-semibold">
               {health?.redis.status.toUpperCase()}
             </div>
           </div>

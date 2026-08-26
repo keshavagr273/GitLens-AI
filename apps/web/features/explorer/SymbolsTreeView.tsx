@@ -8,9 +8,6 @@ import {
   Layers,
   ChevronRight,
   ChevronDown,
-  Activity,
-  Flame,
-  FileCode2,
 } from 'lucide-react';
 
 interface Props {
@@ -22,7 +19,6 @@ interface Props {
 export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Props) {
   const [expandedClasses, setExpandedClasses] = useState<Record<string, boolean>>({});
 
-  // Group top-level symbols vs methods
   const classes = symbols.filter((s) => s.kind === 'class');
   const standaloneFunctions = symbols.filter((s) => s.kind === 'function' && !s.parentId);
   const interfaces = symbols.filter((s) => s.kind === 'interface');
@@ -49,28 +45,28 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
   };
 
   const getComplexityColor = (comp: number) => {
-    if (comp <= 2) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-    if (comp <= 5) return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
-    return 'bg-red-500/10 text-red-300 border-red-500/30';
+    if (comp <= 2) return 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40';
+    if (comp <= 5) return 'bg-amber-950/40 text-[#e8a33d] border-amber-800/40';
+    return 'bg-rose-950/40 text-rose-300 border-rose-800/40';
   };
 
   return (
-    <div className="space-y-3 text-xs">
-      {/* Expand/Collapse Controls */}
-      <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-800/80">
-        <span className="text-[11px] font-mono text-slate-400">AST Symbols ({symbols.length})</span>
-        <div className="flex items-center gap-1.5">
+    <div className="space-y-3 text-xs font-mono">
+      {/* Controls */}
+      <div className="flex items-center justify-between px-1 pb-2 border-b border-white/8">
+        <span className="text-[10px] text-[#a09f9c]">AST Symbols ({symbols.length})</span>
+        <div className="flex items-center gap-1">
           <button
             onClick={expandAll}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="text-[9px] px-2 py-0.5 rounded-[2px] bg-[#141312] border border-white/8 text-[#a09f9c] hover:text-[#f5f3ee] hover:border-[#e8a33d]/40 transition-colors"
           >
-            Expand All
+            Expand
           </button>
           <button
             onClick={collapseAll}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
+            className="text-[9px] px-2 py-0.5 rounded-[2px] bg-[#141312] border border-white/8 text-[#a09f9c] hover:text-[#f5f3ee] hover:border-[#e8a33d]/40 transition-colors"
           >
-            Collapse All
+            Collapse
           </button>
         </div>
       </div>
@@ -78,11 +74,9 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
       {/* 1. Classes & Methods */}
       {classes.length > 0 && (
         <div>
-          <div className="flex items-center justify-between text-slate-400 font-semibold px-2 py-1 text-[11px] uppercase tracking-wider">
-            <div className="flex items-center gap-1.5">
-              <Box className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Classes ({classes.length})</span>
-            </div>
+          <div className="flex items-center gap-1 text-[#a09f9c] font-semibold px-1 py-1 text-[10px] uppercase tracking-wider">
+            <Box className="h-3 w-3 text-[#e8a33d]" />
+            <span>Classes ({classes.length})</span>
           </div>
 
           <div className="space-y-1 mt-1">
@@ -92,35 +86,35 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
               const isActive = activeSymbolId === cls.id;
 
               return (
-                <div key={cls.id} className="rounded-lg bg-slate-900/60 border border-slate-800/80 p-1.5">
+                <div key={cls.id} className="rounded-[3px] bg-[#141312] border border-white/8 p-1">
                   <div
                     onClick={() => {
                       toggleClass(cls.id);
                       onSelectSymbol(cls);
                     }}
-                    className={`flex items-center justify-between p-1.5 rounded-md cursor-pointer transition-colors ${
-                      isActive ? 'bg-indigo-600/30 text-white' : 'hover:bg-slate-800/60 text-slate-200'
+                    className={`flex items-center justify-between p-1.5 rounded-[2px] cursor-pointer transition-all ${
+                      isActive ? 'bg-[#0a0a0b] text-[#f5f3ee] border border-[#e8a33d]' : 'hover:bg-white/5 text-[#f5f3ee]'
                     }`}
                   >
                     <div className="flex items-center gap-1.5 truncate">
                       {methods.length > 0 && (
                         isExpanded ? (
-                          <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                          <ChevronDown className="h-3 w-3 text-[#4b5563] shrink-0" />
                         ) : (
-                          <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                          <ChevronRight className="h-3 w-3 text-[#4b5563] shrink-0" />
                         )
                       )}
-                      <Box className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                      <span className="font-mono text-[11px] font-semibold text-white truncate">
+                      <Box className="h-3 w-3 text-[#e8a33d] shrink-0" />
+                      <span className="text-[11px] font-semibold text-[#f5f3ee] truncate">
                         {cls.name}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${getComplexityColor(cls.metrics.cyclomaticComplexity)}`}>
+                      <span className={`text-[8px] px-1.5 py-0.2 rounded-[2px] border ${getComplexityColor(cls.metrics.cyclomaticComplexity)}`}>
                         CC:{cls.metrics.cyclomaticComplexity}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-mono">
+                      <span className="text-[9px] text-[#4b5563]">
                         L{cls.startLine}-{cls.endLine}
                       </span>
                     </div>
@@ -128,26 +122,26 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
 
                   {/* Class Methods */}
                   {isExpanded && methods.length > 0 && (
-                    <div className="mt-1 pl-4 space-y-0.5 border-l border-slate-800 ml-2">
+                    <div className="mt-1 pl-2.5 space-y-0.5 border-l border-white/8 ml-1.5">
                       {methods.map((method) => {
                         const isMethodActive = activeSymbolId === method.id;
                         return (
                           <div
                             key={method.id}
                             onClick={() => onSelectSymbol(method)}
-                            className={`flex items-center justify-between py-1 px-2 rounded-md cursor-pointer transition-colors ${
+                            className={`flex items-center justify-between py-1 px-1.5 rounded-[2px] cursor-pointer transition-all ${
                               isMethodActive
-                                ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/30 font-medium'
-                                : 'hover:bg-slate-800/60 text-slate-300'
+                                ? 'bg-[#0a0a0b] text-[#e8a33d] border border-[#e8a33d]/40'
+                                : 'hover:bg-white/5 text-[#a09f9c]'
                             }`}
                           >
                             <div className="flex items-center gap-1.5 truncate">
                               <Code2 className="h-3 w-3 text-cyan-400 shrink-0" />
-                              <span className="font-mono text-[11px] truncate">
+                              <span className="text-[10px] truncate">
                                 {method.name}{method.signature || '()'}
                               </span>
                             </div>
-                            <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${getComplexityColor(method.metrics.cyclomaticComplexity)}`}>
+                            <span className={`text-[8px] px-1 py-0.2 rounded-[2px] border ${getComplexityColor(method.metrics.cyclomaticComplexity)}`}>
                               CC:{method.metrics.cyclomaticComplexity}
                             </span>
                           </div>
@@ -165,8 +159,8 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
       {/* 2. Standalone Functions */}
       {standaloneFunctions.length > 0 && (
         <div>
-          <div className="flex items-center gap-1.5 text-slate-400 font-semibold px-2 py-1 text-[11px] uppercase tracking-wider">
-            <Code2 className="h-3.5 w-3.5 text-cyan-400" />
+          <div className="flex items-center gap-1 text-[#a09f9c] font-semibold px-1 py-1 text-[10px] uppercase tracking-wider">
+            <Code2 className="h-3 w-3 text-cyan-400" />
             <span>Functions ({standaloneFunctions.length})</span>
           </div>
 
@@ -177,21 +171,23 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
                 <div
                   key={fn.id}
                   onClick={() => onSelectSymbol(fn)}
-                  className={`flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800/80 cursor-pointer transition-colors ${
-                    isActive ? 'bg-indigo-600/30 border-indigo-500/40 text-white' : 'hover:bg-slate-800/60 text-slate-200'
+                  className={`flex items-center justify-between p-1.5 rounded-[3px] bg-[#141312] border cursor-pointer transition-all ${
+                    isActive
+                      ? 'border-[#e8a33d] text-[#f5f3ee]'
+                      : 'border-white/8 hover:border-[#e8a33d]/40 text-[#a09f9c] hover:bg-white/5'
                   }`}
                 >
                   <div className="flex items-center gap-1.5 truncate">
-                    <Code2 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                    <span className="font-mono text-[11px] font-medium truncate">
+                    <Code2 className="h-3 w-3 text-cyan-400 shrink-0" />
+                    <span className="text-[11px] truncate">
                       {fn.name}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${getComplexityColor(fn.metrics.cyclomaticComplexity)}`}>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className={`text-[8px] px-1.5 py-0.2 rounded-[2px] border ${getComplexityColor(fn.metrics.cyclomaticComplexity)}`}>
                       CC:{fn.metrics.cyclomaticComplexity}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
+                    <span className="text-[9px] text-[#4b5563]">
                       L{fn.startLine}-{fn.endLine}
                     </span>
                   </div>
@@ -205,9 +201,9 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
       {/* 3. Interfaces & Types */}
       {(interfaces.length > 0 || types.length > 0) && (
         <div>
-          <div className="flex items-center gap-1.5 text-slate-400 font-semibold px-2 py-1 text-[11px] uppercase tracking-wider">
-            <Layers className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Types & Interfaces ({interfaces.length + types.length})</span>
+          <div className="flex items-center gap-1 text-[#a09f9c] font-semibold px-1 py-1 text-[10px] uppercase tracking-wider">
+            <Layers className="h-3 w-3 text-emerald-400" />
+            <span>Types ({interfaces.length + types.length})</span>
           </div>
 
           <div className="space-y-1 mt-1">
@@ -217,15 +213,17 @@ export function SymbolsTreeView({ symbols, activeSymbolId, onSelectSymbol }: Pro
                 <div
                   key={item.id}
                   onClick={() => onSelectSymbol(item)}
-                  className={`flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800/80 cursor-pointer transition-colors ${
-                    isActive ? 'bg-indigo-600/30 border-indigo-500/40 text-white' : 'hover:bg-slate-800/60 text-slate-300'
+                  className={`flex items-center justify-between p-1.5 rounded-[3px] bg-[#141312] border cursor-pointer transition-all ${
+                    isActive
+                      ? 'border-[#e8a33d] text-[#f5f3ee]'
+                      : 'border-white/8 hover:border-[#e8a33d]/40 text-[#a09f9c] hover:bg-white/5'
                   }`}
                 >
                   <div className="flex items-center gap-1.5 truncate">
-                    <Layers className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                    <span className="font-mono text-[11px] truncate">{item.name}</span>
+                    <Layers className="h-3 w-3 text-emerald-400 shrink-0" />
+                    <span className="text-[11px] truncate">{item.name}</span>
                   </div>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase">
+                  <span className="text-[9px] px-1.5 py-0.2 rounded-[2px] bg-[#0a0a0b] text-[#e8a33d] border border-[#e8a33d]/20 uppercase">
                     {item.kind}
                   </span>
                 </div>

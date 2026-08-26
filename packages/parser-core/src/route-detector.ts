@@ -15,6 +15,27 @@ export interface RouterMountInfo {
   sourceFile: string;
 }
 
+const VALID_EXTENSIONS = ['.ts', '.js', '.tsx', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rb', '.rs', '.java', '.php'];
+const IGNORED_PATH_PATTERNS = [
+  /\.md$/i,
+  /\.markdown$/i,
+  /\.rst$/i,
+  /\.txt$/i,
+  /\.json$/i,
+  /\.ya?ml$/i,
+  /\.lock$/i,
+  /\.map$/i,
+  /\.d\.ts$/i,
+  /(?:^|\/)(?:docs?|documentation|examples?|tutorials?|fixtures?)\//i,
+  /(?:^|\/)(?:README|CHANGELOG|CONTRIBUTING|LICENSE|SECURITY|CODE_OF_CONDUCT|PROJECT_CHARTER|EXPENSE_POLICY|GOVERNANCE)\b/i,
+];
+
+export function isRouteParseableFile(filePath: string): boolean {
+  if (!filePath) return false;
+  if (IGNORED_PATH_PATTERNS.some((p) => p.test(filePath))) return false;
+  return VALID_EXTENSIONS.some((ext) => filePath.toLowerCase().endsWith(ext));
+}
+
 export function detectRoutes(
   fileId: string,
   filePath: string,
@@ -22,7 +43,7 @@ export function detectRoutes(
   mountPrefixes: RouterMountInfo[] = []
 ): ApiRoute[] {
   const routes: ApiRoute[] = [];
-  if (!content) return routes;
+  if (!content || !isRouteParseableFile(filePath)) return routes;
 
   const lines = content.split('\n');
 
@@ -111,6 +132,8 @@ export function detectRoutes(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const trimmed = line.trim();
+    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
     const lineNum = i + 1;
 
     // 3A. Chained Express: router.route('/register').post(upload.fields(...), registerUser)

@@ -1,0 +1,225 @@
+{
+  "color": {
+    "Surface Base": {
+      "$type": "color",
+      "$value": "#0a0a0b",
+      "$description": "Page background — site appears dark-only; light theme shares same dark palette"
+    },
+    "Surface Card": {
+      "$type": "color",
+      "$value": "#141312",
+      "$description": "Step icon card backgrounds and secondary surface panels"
+    },
+    "Surface Code": {
+      "$type": "color",
+      "$value": "#1f2937",
+      "$description": "Code block background"
+    },
+    "Text Primary": {
+      "$type": "color",
+      "$value": "#f5f3ee",
+      "$description": "Primary foreground text on dark surface"
+    },
+    "Text Muted": {
+      "$type": "color",
+      "$value": "#a09f9c",
+      "$description": "Navigation and secondary label text"
+    },
+    "Text Subtle": {
+      "$type": "color",
+      "$value": "#4b5563",
+      "$description": "Prose lead and footer-level muted text"
+    },
+    "Amber Accent": {
+      "$type": "color",
+      "$value": "#e8a33d",
+      "$description": "CTA button, badge, and brand accent"
+    },
+    "Border Subtle": {
+      "$type": "color",
+      "$value": "#e5e7eb",
+      "$description": "Hairline dividers and prose borders"
+    },
+    "Pure Black": {
+      "$type": "color",
+      "$value": "#000000",
+      "$description": "CTA button label text on amber background"
+    }
+  },
+  "typography": {
+    "Hero Display": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "Fraunces",
+        "fontSize": "60px",
+        "fontWeight": 400,
+        "lineHeight": "60px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Primary hero headline — large serif display at 1:1 line-height ratio"
+    },
+    "Section Heading Large": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "Fraunces",
+        "fontSize": "30px",
+        "fontWeight": 400,
+        "lineHeight": "41.25px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Section-level headings"
+    },
+    "Section Heading Medium": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "Fraunces",
+        "fontSize": "24px",
+        "fontWeight": 400,
+        "lineHeight": "32px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Sub-section headings"
+    },
+    "Card Heading": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "Fraunces",
+        "fontSize": "20px",
+        "fontWeight": 400,
+        "lineHeight": "28px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Card and feature headings"
+    },
+    "Heading Bold": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "Fraunces",
+        "fontSize": "18px",
+        "fontWeight": 700,
+        "lineHeight": "28px",
+        "letterSpacing": "-0.45px"
+      },
+      "$description": "Bold sub-headings with tight tracking"
+    },
+    "Body Default": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "Inter",
+        "fontSize": "16px",
+        "fontWeight": 400,
+        "lineHeight": "24px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Primary body copy and UI text — most frequent tuple (×71)"
+    },
+    "Body Small": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "Inter",
+        "fontSize": "14px",
+        "fontWeight": 400,
+        "lineHeight": "22.75px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Secondary body and caption text"
+    },
+    "Label Mono": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "10px",
+        "fontWeight": 400,
+        "lineHeight": "15px",
+        "letterSpacing": "1px"
+      },
+      "$description": "Step labels, badges, and technical UI labels with wide tracking"
+    },
+    "Label Mono Semibold": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "12px",
+        "fontWeight": 600,
+        "lineHeight": "16px",
+        "letterSpacing": "0.6px"
+      },
+      "$description": "Emphasized mono labels and CTA button text"
+    },
+    "Caption Mono": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "9px",
+        "fontWeight": 400,
+        "lineHeight": "13.5px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Smallest technical captions and sub-labels"
+    }
+  },
+  "spacing": {
+    "space-1": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "space-2": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "space-3": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "space-4": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "space-6": {
+      "$type": "dimension",
+      "$value": "24px"
+    },
+    "space-8": {
+      "$type": "dimension",
+      "$value": "32px"
+    },
+    "space-12": {
+      "$type": "dimension",
+      "$value": "48px"
+    },
+    "space-16": {
+      "$type": "dimension",
+      "$value": "64px"
+    },
+    "space-20": {
+      "$type": "dimension",
+      "$value": "80px"
+    },
+    "space-26": {
+      "$type": "dimension",
+      "$value": "104px"
+    },
+    "space-32": {
+      "$type": "dimension",
+      "$value": "128px"
+    }
+  },
+  "borderRadius": {
+    "radius-xs": {
+      "$type": "dimension",
+      "$value": "2px"
+    },
+    "radius-sm": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "radius-md": {
+      "$type": "dimension",
+      "$value": "6px"
+    },
+    "radius-lg": {
+      "$type": "dimension",
+      "$value": "8px"
+    }
+  }
+}

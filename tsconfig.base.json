@@ -4,6 +4,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "baseUrl": ".",
     "resolveJsonModule": true,
     "allowJs": true,
     "strict": true,
@@ -21,7 +22,29 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "paths": {
+      "@gitlens/ai-core": ["./packages/ai-core/src/index.ts"],
+      "@gitlens/ai-core/*": ["./packages/ai-core/src/*"],
+      "@gitlens/config": ["./packages/config/src/index.ts"],
+      "@gitlens/config/*": ["./packages/config/src/*"],
+      "@gitlens/database": ["./packages/database/src/index.ts"],
+      "@gitlens/database/*": ["./packages/database/src/*"],
+      "@gitlens/graph-core": ["./packages/graph-core/src/index.ts"],
+      "@gitlens/graph-core/*": ["./packages/graph-core/src/*"],
+      "@gitlens/ingestion": ["./packages/ingestion/src/index.ts"],
+      "@gitlens/ingestion/*": ["./packages/ingestion/src/*"],
+      "@gitlens/parser-core": ["./packages/parser-core/src/index.ts"],
+      "@gitlens/parser-core/*": ["./packages/parser-core/src/*"],
+      "@gitlens/rag-core": ["./packages/rag-core/src/index.ts"],
+      "@gitlens/rag-core/*": ["./packages/rag-core/src/*"],
+      "@gitlens/shared-types": ["./packages/shared-types/src/index.ts"],
+      "@gitlens/shared-types/*": ["./packages/shared-types/src/*"],
+      "@gitlens/telemetry": ["./packages/telemetry/src/index.ts"],
+      "@gitlens/telemetry/*": ["./packages/telemetry/src/*"],
+      "@gitlens/utils": ["./packages/utils/src/index.ts"],
+      "@gitlens/utils/*": ["./packages/utils/src/*"]
+    }
   }
 }
 

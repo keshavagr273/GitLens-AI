@@ -290,10 +290,18 @@ export class IngestionPipeline {
       }
 
       const allRoutes: ApiRoute[] = [];
+      const seenRouteKeys = new Set<string>();
+
       for (const f of filteredFiles) {
         if (f.content) {
           const detected = detectRoutes(f.id, f.path, f.content, mountPrefixes);
-          allRoutes.push(...detected);
+          for (const route of detected) {
+            const key = `${route.method}:${route.path}`;
+            if (!seenRouteKeys.has(key)) {
+              seenRouteKeys.add(key);
+              allRoutes.push(route);
+            }
+          }
         }
       }
 

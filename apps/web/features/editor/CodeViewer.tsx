@@ -9,7 +9,6 @@ import {
   Minimize2,
   Copy,
   Check,
-  Code2,
   Sparkles,
 } from 'lucide-react';
 
@@ -51,17 +50,15 @@ export function CodeViewer({
     const monaco = monacoRef.current;
     const editor = editorRef.current;
 
-    // Scroll to target line
     editor.revealLinesInCenter(startLine, endLine);
 
-    // Apply high-contrast line highlight
     const newDecorations = [
       {
         range: new monaco.Range(startLine, 1, endLine, 1),
         options: {
           isWholeLine: true,
-          className: 'bg-indigo-600/20 border-l-4 border-indigo-400',
-          glyphMarginClassName: 'bg-indigo-500',
+          className: 'bg-[#e8a33d]/15 border-l-2 border-[#e8a33d]',
+          glyphMarginClassName: 'bg-[#e8a33d]',
         },
       },
     ];
@@ -86,23 +83,23 @@ export function CodeViewer({
   return (
     <div
       style={{ height: isExpanded ? '520px' : `${height || 260}px` }}
-      className="border-t border-slate-800/80 glass-panel flex flex-col shrink-0 overflow-hidden"
+      className="border-t border-white/8 bg-[#0a0a0b] flex flex-col shrink-0 overflow-hidden font-mono"
     >
       {/* Code Viewer Breadcrumb Header */}
-      <div className="h-9 px-4 border-b border-slate-800/80 bg-slate-900/90 flex items-center justify-between text-xs shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <FileCode2 className="h-4 w-4 text-indigo-400 shrink-0" />
-          <span className="font-mono text-slate-200 font-medium truncate">
+      <div className="h-9 px-3 border-b border-white/8 bg-[#141312] flex items-center justify-between text-xs shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileCode2 className="h-3.5 w-3.5 text-[#e8a33d] shrink-0" />
+          <span className="text-[#f5f3ee] text-xs font-medium truncate">
             {file?.path || 'No file selected'}
           </span>
           {file && (
-            <span className="text-[10px] text-slate-500 font-mono shrink-0">
+            <span className="text-[10px] text-[#4b5563] shrink-0">
               ({lineCount} lines • {((file.sizeBytes || 0) / 1024).toFixed(1)} KB)
             </span>
           )}
           {highlightedLines && (
-            <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-cyan-300 border border-indigo-500/40 text-[10px] font-mono shrink-0 flex items-center gap-1">
-              <Sparkles className="h-3 w-3" />
+            <span className="px-2 py-0.2 rounded-[2px] bg-[#e8a33d]/15 text-[#e8a33d] border border-[#e8a33d]/30 text-[9px] shrink-0 flex items-center gap-1 font-semibold">
+              <Sparkles className="h-2.5 w-2.5" />
               Lines {highlightedLines[0]}-{highlightedLines[1]}
             </span>
           )}
@@ -112,7 +109,7 @@ export function CodeViewer({
           {file?.content && (
             <button
               onClick={handleCopyCode}
-              className="px-2 py-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 flex items-center gap-1 transition-colors text-[11px]"
+              className="px-2.5 py-0.5 rounded-[2px] text-[#a09f9c] hover:text-[#f5f3ee] hover:bg-white/5 flex items-center gap-1 transition-colors text-[10px] uppercase font-semibold"
               title="Copy Code"
             >
               {copied ? (
@@ -130,10 +127,10 @@ export function CodeViewer({
           )}
           <button
             onClick={onToggleExpand}
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1 rounded text-[#a09f9c] hover:text-[#f5f3ee] transition-colors"
             title={isExpanded ? 'Collapse' : 'Expand'}
           >
-            {isExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            {isExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
           </button>
         </div>
       </div>
@@ -150,7 +147,7 @@ export function CodeViewer({
             readOnly: true,
             minimap: { enabled: false },
             fontSize: 12,
-            fontFamily: 'Fira Code, monospace',
+            fontFamily: 'JetBrains Mono, monospace',
             scrollBeyondLastLine: false,
             lineNumbers: 'on',
             automaticLayout: true,

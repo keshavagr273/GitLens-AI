@@ -266,7 +266,6 @@ export class DatabaseStore {
       if (depN && depN.length > 0) {
         return { nodes: depN, edges: depE || [] };
       }
-      return { nodes: [], edges: [] };
     }
     const nodes = this.graphNodes.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.graphNodes.get('analysis-fastify-001') || [] : []);
     const edges = this.graphEdges.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.graphEdges.get('analysis-fastify-001') || [] : []);

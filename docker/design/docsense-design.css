@@ -1,0 +1,43 @@
+@theme {
+  /* Colors */
+  --color-surface-base: #0a0a0b;
+  --color-surface-card: #141312;
+  --color-surface-code: #1f2937;
+  --color-text-primary: #f5f3ee;
+  --color-text-muted: #a09f9c;
+  --color-text-subtle: #4b5563;
+  --color-amber-accent: #e8a33d;
+  --color-border-subtle: #e5e7eb;
+  --color-pure-black: #000000;
+  --color-surface-base: #0a0a0b;
+  --color-text-primary: #f5f3ee;
+  --color-text-muted: #a09f9c;
+  --color-amber-accent: #e8a33d;
+  --color-border-subtle: #e5e7eb;
+  --color-surface-code: #1f2937;
+
+  /* Spacing */
+  --spacing-space-1: 4px;
+  --spacing-space-2: 8px;
+  --spacing-space-3: 12px;
+  --spacing-space-4: 16px;
+  --spacing-space-6: 24px;
+  --spacing-space-8: 32px;
+  --spacing-space-12: 48px;
+  --spacing-space-16: 64px;
+  --spacing-space-20: 80px;
+  --spacing-space-26: 104px;
+  --spacing-space-32: 128px;
+
+  /* Border Radius */
+  --radius-radius-xs: 2px;
+  --radius-radius-sm: 4px;
+  --radius-radius-md: 6px;
+  --radius-radius-lg: 8px;
+
+  /* Fonts */
+  --font-fraunces: "Fraunces", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  --font-jetbrains-mono: "JetBrains Mono", sans-serif;
+
+}

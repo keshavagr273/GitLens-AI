@@ -8,18 +8,9 @@ import {
   Layers,
   Zap,
   Network,
-  Cpu,
   Search,
-  Sparkles,
-  Terminal,
   Activity,
-  Maximize2,
-  Minimize2,
   ExternalLink,
-  CheckCircle2,
-  Bot,
-  GripVertical,
-  GripHorizontal,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/lib/store';
 import {
@@ -36,13 +27,13 @@ import {
 import { FileTreeView } from '@/features/explorer/FileTreeView';
 import { SymbolsTreeView } from '@/features/explorer/SymbolsTreeView';
 import { GraphCanvas } from '@/features/graph/GraphCanvas';
-import { NodeInspector } from '@/features/graph/NodeInspector';
 import { OmnibarSearch } from '@/features/workspace/OmnibarSearch';
 import { CodeViewer } from '@/features/editor/CodeViewer';
 import { RequestFlowView } from '@/features/routes/RequestFlowView';
 import { ChatAssistantPane } from '@/features/chat/ChatAssistantPane';
 import { DiagnosticsModal } from '@/features/workspace/DiagnosticsModal';
-import { GraphNode, SourceFile, ApiRoute, RequestFlowHop, SymbolNode } from '@gitlens/shared-types';
+import { GitLensLogo } from '@/components/GitLensLogo';
+import { SymbolNode } from '@gitlens/shared-types';
 
 export default function WorkspacePage() {
   const params = useParams();
@@ -50,7 +41,6 @@ export default function WorkspacePage() {
 
   const {
     repository,
-    analysis,
     files,
     activeFile,
     highlightedLines,
@@ -86,10 +76,10 @@ export default function WorkspacePage() {
   const [isCodeViewerExpanded, setIsCodeViewerExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'files' | 'symbols' | 'routes' | 'tech'>('files');
 
-  // Resizable Panes State (Clamped with slim defaults for spacious centered canvas)
-  const [leftWidth, setLeftWidth] = useState(220);
-  const [rightWidth, setRightWidth] = useState(280);
-  const [bottomHeight, setBottomHeight] = useState(90);
+  // Resizable Panes State
+  const [leftWidth, setLeftWidth] = useState(270);
+  const [rightWidth, setRightWidth] = useState(320);
+  const [bottomHeight, setBottomHeight] = useState(100);
 
   const isResizingRef = useRef<'left' | 'right' | 'bottom' | null>(null);
 
@@ -248,125 +238,114 @@ export default function WorkspacePage() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-slate-100 font-sans">
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0a0a0b] text-[#f5f3ee] font-sans">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center shadow-glow animate-pulse">
-            <Network className="h-6 w-6 text-white" />
+          <div className="h-10 w-10 rounded-[3px] bg-[#141312] border border-[#e8a33d] flex items-center justify-center text-[#e8a33d] animate-pulse">
+            <Network className="h-5 w-5" />
           </div>
-          <p className="font-mono text-sm text-slate-400">Loading codebase architecture & graph...</p>
+          <p className="font-mono text-xs text-[#a09f9c] tracking-widest uppercase">
+            Loading Codebase Architecture & AST Graph...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-background text-slate-100 overflow-hidden font-sans select-none">
+    <div className="h-screen w-screen flex flex-col bg-[#0a0a0b] text-[#f5f3ee] overflow-hidden font-sans select-none selection:bg-[#e8a33d]/30 selection:text-[#f5f3ee]">
       {/* 1. TOP BAR */}
-      <header className="h-14 border-b border-slate-800/80 glass-panel px-4 flex items-center justify-between z-30 shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="h-14 border-b border-white/8 bg-[#0a0a0b]/95 backdrop-blur-md px-5 flex items-center justify-between z-30 shrink-0">
+        {/* Left: Brand & Repo Context */}
+        <div className="flex items-center gap-3.5">
           <Link
             href="/"
-            className="flex items-center gap-2 font-bold text-sm text-white hover:text-indigo-300 transition-colors"
+            className="flex items-center gap-2 text-[#f5f3ee] hover:text-[#e8a33d] transition-colors"
           >
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center">
-              <Network className="h-4 w-4 text-white" />
-            </div>
-            <span>GitLens AI</span>
+            <GitLensLogo size={24} />
+            <span className="font-serif font-normal text-base text-[#f5f3ee]">
+              GitLens
+            </span>
           </Link>
 
-          <div className="h-4 w-[1px] bg-slate-800" />
+          <div className="h-4 w-[1px] bg-white/10" />
 
           {/* Repo metadata chip */}
           <div className="flex items-center gap-2 text-xs">
-            <span className="font-semibold text-white">
+            <span className="font-mono font-semibold text-[#f5f3ee] text-xs">
               {repository?.owner}/{repository?.name}
             </span>
-            <span className="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-slate-300 flex items-center gap-1 font-mono text-[11px]">
-              <GitBranch className="h-3 w-3 text-indigo-400" />
+            <span className="px-2 py-0.5 rounded-[2px] bg-[#141312] border border-white/8 text-[#a09f9c] flex items-center gap-1 font-mono text-[10px]">
+              <GitBranch className="h-3 w-3 text-[#e8a33d]" />
               {repository?.defaultBranch || 'main'}
-            </span>
-            <span className="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60 text-cyan-300 font-mono text-[11px]">
-              {analysis?.commitSha || '7a8f9c'}
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium text-[11px] flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" />
-              Analyzed
             </span>
           </div>
         </div>
 
-        {/* Center Mode Switcher Tabs */}
-        <div className="hidden md:flex items-center p-1 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
+        {/* Center: Mode Switcher Tabs */}
+        <div className="flex items-center p-1 rounded-[4px] bg-[#141312] border border-white/8 text-xs">
           <button
             onClick={() => handleGraphModeChange('architecture')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3.5 py-1 rounded-[3px] flex items-center gap-1.5 font-mono text-xs font-semibold transition-all ${
               graphMode === 'architecture'
-                ? 'bg-indigo-600 text-white shadow-glow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#e8a33d] text-black'
+                : 'text-[#a09f9c] hover:text-[#f5f3ee]'
             }`}
           >
-            <Layers className="h-3.5 w-3.5" />
+            <Layers className="h-3 w-3" />
             <span>Architecture</span>
           </button>
           <button
             onClick={() => handleGraphModeChange('dependency')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3.5 py-1 rounded-[3px] flex items-center gap-1.5 font-mono text-xs font-semibold transition-all ${
               graphMode === 'dependency'
-                ? 'bg-indigo-600 text-white shadow-glow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#e8a33d] text-black'
+                : 'text-[#a09f9c] hover:text-[#f5f3ee]'
             }`}
           >
-            <Network className="h-3.5 w-3.5" />
+            <Network className="h-3 w-3" />
             <span>Dependencies</span>
           </button>
           <button
             onClick={() => handleGraphModeChange('flow')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3.5 py-1 rounded-[3px] flex items-center gap-1.5 font-mono text-xs font-semibold transition-all ${
               graphMode === 'flow'
-                ? 'bg-indigo-600 text-white shadow-glow'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[#e8a33d] text-black'
+                : 'text-[#a09f9c] hover:text-[#f5f3ee]'
             }`}
           >
-            <Zap className="h-3.5 w-3.5" />
+            <Zap className="h-3 w-3" />
             <span>Request Flow</span>
           </button>
         </div>
 
         {/* Right Tools & Omnibar Trigger */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 font-mono text-xs">
           <button
             onClick={() => setIsOmnibarOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/40 text-slate-400 hover:text-white text-xs transition-colors shadow-inner"
+            className="flex items-center gap-2 px-3 py-1 rounded-[3px] bg-[#141312] border border-white/8 hover:border-[#e8a33d]/50 text-[#a09f9c] hover:text-[#f5f3ee] text-xs transition-colors"
           >
-            <Search className="h-3.5 w-3.5 text-indigo-400" />
+            <Search className="h-3 w-3 text-[#e8a33d]" />
             <span>Search codebase...</span>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+            <kbd className="text-[9px] font-mono px-1 py-0.2 rounded-[2px] bg-[#0a0a0b] text-[#a09f9c] border border-white/8">
               ⌘K
             </kbd>
           </button>
 
           <button
-            onClick={() => handleSendChat('Explain overall repository architecture and entry points.')}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:text-white text-xs transition-colors"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Explain Architecture</span>
-          </button>
-          <button
             onClick={() => setIsDiagnosticsOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-300 text-xs transition-colors shadow-inner"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-[3px] bg-[#141312] border border-white/8 hover:border-[#e8a33d]/40 text-[#a09f9c] hover:text-[#f5f3ee] text-xs transition-colors"
             title="System Diagnostics & Telemetry"
           >
-            <Activity className="h-3.5 w-3.5 text-cyan-400" />
+            <Activity className="h-3 w-3 text-[#e8a33d]" />
             <span>Diagnostics</span>
           </button>
 
           <Link
             href={repository?.githubUrl || '#'}
             target="_blank"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white glass-panel transition-colors"
+            className="p-1.5 rounded-[3px] text-[#a09f9c] hover:text-[#f5f3ee] bg-[#141312] border border-white/8 hover:border-[#e8a33d]/40 transition-colors"
           >
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink className="h-3 w-3" />
           </Link>
         </div>
       </header>
@@ -376,41 +355,40 @@ export default function WorkspacePage() {
         {/* LEFT PANE: File Tree, Symbols, Routes & Technologies */}
         <aside
           style={{ width: `${leftWidth}px` }}
-          className="border-r border-slate-800/80 glass-panel flex flex-col shrink-0 z-20 h-full overflow-hidden"
+          className="border-r border-white/8 bg-[#0a0a0b] flex flex-col shrink-0 z-20 h-full overflow-hidden"
         >
-          <div className="flex items-center border-b border-slate-800/80 p-1.5 bg-slate-900/60 text-xs shrink-0">
-            <button
-              onClick={() => setActiveTab('files')}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
-                activeTab === 'files' ? 'bg-slate-800 text-indigo-300' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Files ({files.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('symbols')}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
-                activeTab === 'symbols' ? 'bg-slate-800 text-cyan-300' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Symbols ({symbols.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('routes')}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
-                activeTab === 'routes' ? 'bg-slate-800 text-amber-300' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Routes ({routes.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('tech')}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
-                activeTab === 'tech' ? 'bg-slate-800 text-emerald-300' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Tech ({technologies.length})
-            </button>
+          <div className="grid grid-cols-4 border-b border-white/8 p-1 bg-[#141312] text-xs shrink-0 gap-1">
+            {[
+              { key: 'files', label: 'Files', count: files.length },
+              { key: 'symbols', label: 'Symbols', count: symbols.length },
+              { key: 'routes', label: 'Routes', count: routes.length },
+              { key: 'tech', label: 'Tech', count: technologies.length },
+            ].map((tab) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as any)}
+                  className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-[3px] transition-all font-mono ${
+                    isActive
+                      ? 'bg-[#0a0a0b] text-[#f5f3ee] border border-[#e8a33d]/40 font-semibold'
+                      : 'text-[#a09f9c] hover:text-[#f5f3ee] hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-1">
+                    {isActive ? (
+                      <span className="h-1 w-1 rounded-full bg-[#e8a33d]" />
+                    ) : (
+                      <span className="h-1 w-1 rounded-full bg-[#4b5563]" />
+                    )}
+                    <span className="text-[10px] tracking-wide uppercase truncate">{tab.label}</span>
+                  </div>
+                  <span className={`text-[9px] font-mono mt-0.5 ${isActive ? 'text-[#e8a33d]' : 'text-[#4b5563]'}`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 text-xs">
@@ -431,7 +409,7 @@ export default function WorkspacePage() {
             )}
 
             {activeTab === 'routes' && (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {routes.map((route) => {
                   const isSelected = selectedRoute?.id === route.id;
                   return (
@@ -446,29 +424,27 @@ export default function WorkspacePage() {
                           handleOpenFile(route.fileId, [route.startLine, route.startLine + 10]);
                         }
                       }}
-                      className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                      className={`p-2.5 rounded-[4px] border cursor-pointer transition-all font-mono ${
                         isSelected
-                          ? 'bg-cyan-500/10 border-cyan-500/40 text-white'
-                          : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700 text-slate-300'
+                          ? 'bg-[#141312] border-[#e8a33d] text-[#f5f3ee]'
+                          : 'bg-[#141312] border-white/8 hover:border-[#e8a33d]/40 text-[#a09f9c]'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span
-                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                            route.method === 'GET'
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : route.method === 'POST'
-                              ? 'bg-indigo-500/20 text-indigo-300'
-                              : 'bg-amber-500/20 text-amber-300'
+                          className={`text-[9px] font-mono px-1.5 py-0.2 rounded-[2px] font-bold ${
+                            route.method === 'GET' || route.method === 'POST'
+                              ? 'bg-[#e8a33d]/15 text-[#e8a33d] border border-[#e8a33d]/30'
+                              : 'bg-amber-950/40 text-amber-300 border border-amber-800/40'
                           }`}
                         >
                           {route.method}
                         </span>
-                        <span className="text-[10px] text-slate-500 font-mono">{route.filePath}</span>
+                        <span className="text-[9px] text-[#4b5563] truncate max-w-[120px]">{route.filePath}</span>
                       </div>
-                      <p className="text-xs font-mono text-cyan-300 font-medium truncate">{route.path}</p>
+                      <p className="text-xs font-mono text-[#f5f3ee] font-medium truncate">{route.path}</p>
                       {route.handlerName && (
-                        <p className="text-[11px] text-slate-400 mt-1 truncate">→ {route.handlerName}</p>
+                        <p className="text-[10px] text-[#e8a33d] mt-0.5 truncate">→ {route.handlerName}</p>
                       )}
                     </div>
                   );
@@ -477,18 +453,18 @@ export default function WorkspacePage() {
             )}
 
             {activeTab === 'tech' && (
-              <div className="space-y-2">
+              <div className="space-y-2 font-mono">
                 {technologies.map((tech) => (
-                  <div key={tech.id} className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                  <div key={tech.id} className="p-2.5 rounded-[4px] bg-[#141312] border border-white/8">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-white">{tech.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-mono">
+                      <span className="font-semibold text-[#f5f3ee] text-xs">{tech.name}</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded-[2px] bg-[#e8a33d]/10 text-[#e8a33d] border border-[#e8a33d]/20">
                         {tech.category}
                       </span>
                     </div>
-                    <div className="space-y-1 mt-2">
-                      {tech.evidence.map((ev, i) => (
-                        <p key={i} className="text-[10px] font-mono text-slate-400 bg-slate-950/80 p-1 rounded">
+                    <div className="space-y-1 mt-1.5">
+                      {tech.evidence.map((ev: string, i: number) => (
+                        <p key={i} className="text-[9px] text-[#a09f9c] bg-[#0a0a0b] p-1 rounded-[2px] border border-white/5 truncate">
                           {ev}
                         </p>
                       ))}
@@ -503,16 +479,16 @@ export default function WorkspacePage() {
         {/* Left Resize Splitter Handle */}
         <div
           onMouseDown={startResizingLeft}
-          className="w-1.5 hover:w-2.5 bg-slate-800/40 hover:bg-cyan-500/80 cursor-col-resize shrink-0 transition-all z-30 flex items-center justify-center group"
+          className="w-1 hover:w-1.5 bg-white/5 hover:bg-[#e8a33d] cursor-col-resize shrink-0 transition-all z-30 flex items-center justify-center group"
           title="Drag to resize left sidebar"
         >
-          <div className="h-6 w-0.5 bg-slate-600 group-hover:bg-white rounded-full" />
+          <div className="h-6 w-0.5 bg-[#4b5563] group-hover:bg-white rounded-full" />
         </div>
 
         {/* CENTER PANE: Interactive Canvas & Request Flow */}
         <main className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
           {/* Canvas View */}
-          <div className="flex-1 relative overflow-hidden bg-slate-950/50 flex flex-col min-h-0">
+          <div className="flex-1 relative overflow-hidden bg-[#0a0a0b] flex flex-col min-h-0">
             {graphMode !== 'flow' ? (
               <div className="relative w-full h-full">
                 <GraphCanvas
@@ -544,10 +520,10 @@ export default function WorkspacePage() {
           {/* Bottom Horizontal Resize Splitter Handle */}
           <div
             onMouseDown={startResizingBottom}
-            className="h-1.5 hover:h-2.5 bg-slate-800/40 hover:bg-cyan-500/80 cursor-row-resize shrink-0 transition-all z-30 flex items-center justify-center group"
+            className="h-1 hover:h-1.5 bg-white/5 hover:bg-[#e8a33d] cursor-row-resize shrink-0 transition-all z-30 flex items-center justify-center group"
             title="Drag to resize source editor"
           >
-            <div className="w-8 h-0.5 bg-slate-600 group-hover:bg-white rounded-full" />
+            <div className="w-8 h-0.5 bg-[#4b5563] group-hover:bg-white rounded-full" />
           </div>
 
           {/* Monaco Editor Code Viewer */}
@@ -563,10 +539,10 @@ export default function WorkspacePage() {
         {/* Right Resize Splitter Handle */}
         <div
           onMouseDown={startResizingRight}
-          className="w-1.5 hover:w-2.5 bg-slate-800/40 hover:bg-cyan-500/80 cursor-col-resize shrink-0 transition-all z-30 flex items-center justify-center group"
+          className="w-1 hover:w-1.5 bg-white/5 hover:bg-[#e8a33d] cursor-col-resize shrink-0 transition-all z-30 flex items-center justify-center group"
           title="Drag to resize AI assistant"
         >
-          <div className="h-6 w-0.5 bg-slate-600 group-hover:bg-white rounded-full" />
+          <div className="h-6 w-0.5 bg-[#4b5563] group-hover:bg-white rounded-full" />
         </div>
 
         {/* RIGHT PANE: Grounded AI Assistant */}
