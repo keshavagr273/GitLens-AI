@@ -5,6 +5,11 @@ export const metadata: Metadata = {
   title: 'GitLens AI — Production-Grade Interactive Codebase Explorer & Architecture Q&A',
   description:
     'Explore any GitHub repository as a living architecture graph. No hallucinations. Just deterministic code receipts and AST-grounded AI explanations.',
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/favicon.ico',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({
