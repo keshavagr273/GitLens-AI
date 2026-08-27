@@ -1,6 +1,6 @@
 <p align="center">
   <img src="docs/assets/logo.png" alt="GitLens AI Logo" width="130" style="border-radius: 28px; box-shadow: 0 16px 36px rgba(0,0,0,0.5);" />
-  <h1 align="center">GitLens AI (गिटलेंस एआई)</h1>
+  <h1 align="center">GitLens AI</h1>
   <p align="center">
     <strong>Production-Grade AI-Powered Codebase Intelligence & Architecture Explorer</strong><br/>
     <em>Deterministic AST Parsing, Interactive Dependency Graphs, API Flow Traversal, Hybrid Code RAG, and Grounded AI Q&A.</em>
@@ -34,7 +34,7 @@
 
 ## What is GitLens AI?
 
-**GitLens AI (गिटलेंस एआई)** is an enterprise-grade, interactive codebase intelligence and architecture reasoning platform. It ingests public and private GitHub repositories and transforms them into living, navigable architecture graphs, end-to-end API request-flow maps, and a grounded AI engineering assistant.
+**GitLens AI** is an enterprise-grade, interactive codebase intelligence and architecture reasoning platform. It ingests public and private GitHub repositories and transforms them into living, navigable architecture graphs, end-to-end API request-flow maps, and a grounded AI engineering assistant.
 
 Modern codebases are large, modular, and multi-layered. Developers spend over 60% of their time reading, tracing, and reverse-engineering unfamiliar code. Traditional tools either provide static CLI graph outputs without interactive visualization, or rely on naive LLM wrappers that slice code into arbitrary text chunks, producing severe hallucinations.
 
@@ -53,7 +53,7 @@ GitLens AI solves this with a strict **Evidence Over Inference** philosophy:
 
 Navigating unfamiliar codebases with traditional tools or generic AI wrappers leads to blind spots and hallucinations:
 
-| What you want to do | Traditional Tools / Generic AI Chat | With GitLens AI (गिटलेंस एआई) |
+| What you want to do | Traditional Tools / Generic AI Chat | With GitLens AI |
 |---|---|---|
 | **Understand repo architecture** | Outdated READMEs or clicking folder trees | **Interactive Living Graph** with module clusters, metrics, and dependency depth |
 | **Trace HTTP request flows** | Manual grepping across controllers and services | **Deterministic Flow Maps** linking route $\rightarrow$ handler $\rightarrow$ service $\rightarrow$ ORM query |
@@ -343,6 +343,6 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 ---
 
 <p align="center">
-  <strong>GitLens AI (गिटलेंस एआई)</strong><br/>
+  <strong>GitLens AI</strong><br/>
   <em>Empowering Engineering Teams with Grounded Codebase Intelligence & AST Precision.</em>
 </p>
