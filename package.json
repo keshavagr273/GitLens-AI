@@ -2,7 +2,7 @@
   "name": "gitlens-ai-root",
   "version": "1.0.0",
   "private": true,
-  "description": "GitLens AI — Production-Grade AI-Powered Codebase Explorer",
+  "description": "GitLens AI ",
   "workspaces": [
     "packages/*",
     "apps/*",
