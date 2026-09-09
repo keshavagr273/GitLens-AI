@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnalysisProgressEvent, AnalysisStage } from '@gitlens/shared-types';
 import { CheckCircle2, Loader2, AlertCircle, Sparkles, Terminal } from 'lucide-react';
+import { API_BASE_URL } from '../../lib/api';
 
 interface Props {
   analysisId: string;
@@ -30,8 +31,7 @@ export function AnalysisProgressModal({ analysisId, isOpen, onComplete, onClose 
   useEffect(() => {
     if (!isOpen || !analysisId) return;
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const eventSource = new EventSource(`${apiBase}/api/analyses/${analysisId}/progress`);
+    const eventSource = new EventSource(`${API_BASE_URL}/api/analyses/${analysisId}/progress`);
 
     eventSource.onmessage = (event) => {
       try {

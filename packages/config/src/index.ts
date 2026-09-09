@@ -30,6 +30,7 @@ const envSchema = z.object({
     .default('postgresql://postgres:postgrespassword@localhost:5432/gitlens'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
+  GITHUB_API_URL: z.string().default('https://api.github.com'),
   GITHUB_TOKEN: z.string().optional().default(''),
   GITHUB_CLIENT_ID: z.string().optional().default(''),
   GITHUB_CLIENT_SECRET: z.string().optional().default(''),
@@ -38,12 +39,15 @@ const envSchema = z.object({
   LLM_API_KEY: z.string().optional().default(''),
   GROQ_API_KEY: z.string().optional().default(''),
   GROQ_MODEL: z.string().default('openai/gpt-oss-120b'),
+  GROQ_BASE_URL: z.string().default('https://api.groq.com/openai/v1'),
   EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
   EMBEDDING_DIMENSION: z.coerce.number().default(1536),
 
   MAX_REPOSITORY_SIZE_MB: z.coerce.number().default(100),
   MAX_FILE_SIZE_KB: z.coerce.number().default(500),
   MAX_CONCURRENT_ANALYSES: z.coerce.number().default(4),
+
+  DOCKER_BUILD: z.string().optional().default(''),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

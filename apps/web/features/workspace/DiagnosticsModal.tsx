@@ -12,6 +12,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { GraphNode, GraphEdge, SourceFile, ApiRoute } from '@gitlens/shared-types';
+import { API_BASE_URL } from '../../lib/api';
 
 interface Props {
   isOpen: boolean;
@@ -45,8 +46,7 @@ export function DiagnosticsModal({
 
   useEffect(() => {
     if (isOpen) {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      fetch(`${apiBase}/api/diagnostics`)
+      fetch(`${API_BASE_URL}/api/diagnostics`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data) setDiagnostics(data);

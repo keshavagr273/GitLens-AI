@@ -1,5 +1,5 @@
 import { chunkSourceFile } from './chunker';
-import { generateDenseEmbedding, cosineSimilarity } from './embedder';
+import { generateDenseEmbedding, cosineSimilarity, EMBEDDING_DIMENSION } from './embedder';
 import { BM25Engine } from './bm25';
 import { HybridRetriever } from './hybrid-retriever';
 import { SourceFile, SymbolNode, CodeChunk } from '@gitlens/shared-types';
@@ -101,7 +101,7 @@ const vecA = generateDenseEmbedding('async createOrder(userId: string, items: an
 const vecB = generateDenseEmbedding('order creation transaction process');
 const vecC = generateDenseEmbedding('database configuration ssl connection pool');
 
-assert(vecA.length === 384, 'Generated 384-dimensional dense vector');
+assert(vecA.length === EMBEDDING_DIMENSION, `Generated ${EMBEDDING_DIMENSION}-dimensional dense vector`);
 const simAB = cosineSimilarity(vecA, vecB);
 const simAC = cosineSimilarity(vecA, vecC);
 

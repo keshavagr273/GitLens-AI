@@ -1,4 +1,5 @@
 import { calculateShannonEntropy } from '@gitlens/utils';
+import { config } from '@gitlens/config';
 import { GitTreeEntry } from './github';
 
 const EXCLUDED_EXTENSIONS = new Set([
@@ -144,7 +145,7 @@ export function isMinifiedOrGenerated(content: string, path: string): boolean {
 
 export function shouldProcessFile(
   entry: GitTreeEntry,
-  maxFileSizeBytes = 500 * 1024
+  maxFileSizeBytes = (config.MAX_FILE_SIZE_KB || 500) * 1024
 ): FileFilterResult {
   const path = entry.path;
   const segments = path.split('/');

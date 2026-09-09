@@ -12,6 +12,7 @@ import {
   CodeChunk,
 } from '@gitlens/shared-types';
 import { generateUuid } from '@gitlens/utils';
+import { config } from '@gitlens/config';
 import {
   SEED_REPOSITORIES,
   SEED_ANALYSES,
@@ -178,7 +179,7 @@ export class DatabaseStore {
       analysisVersion: {
         parser: '1.3.0',
         detectors: '1.1.0',
-        embeddingModel: 'text-embedding-3-small',
+        embeddingModel: config.EMBEDDING_MODEL || 'text-embedding-3-small',
         schemaVersion: 4,
       },
       startedAt: new Date().toISOString(),

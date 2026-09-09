@@ -114,9 +114,11 @@ ${contextString}
 User Query:
 ${safety.sanitizedPrompt}`;
 
+      const groqEndpoint = `${(config.GROQ_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/$/, '')}/chat/completions`;
+
       for (const model of candidateModels) {
         try {
-          const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          const groqRes = await fetch(groqEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

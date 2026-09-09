@@ -1,4 +1,5 @@
 import { sleep } from '@gitlens/utils';
+import { config } from '@gitlens/config';
 
 export interface GitHubRepoMetadata {
   owner: string;
@@ -28,10 +29,11 @@ export interface GitTreeResponse {
 
 export class GitHubClient {
   private token?: string;
-  private apiBase = 'https://api.github.com';
+  private apiBase: string;
 
-  constructor(token?: string) {
-    this.token = token || process.env.GITHUB_TOKEN || undefined;
+  constructor(token?: string, apiBase?: string) {
+    this.token = token || config.GITHUB_TOKEN || process.env.GITHUB_TOKEN || undefined;
+    this.apiBase = (apiBase || config.GITHUB_API_URL || process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/$/, '');
   }
 
   private getHeaders(): Record<string, string> {

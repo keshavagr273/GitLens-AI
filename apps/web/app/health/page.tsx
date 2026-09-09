@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, Server, Database, Radio } from 'lucide-react';
+import { API_BASE_URL } from '../../lib/api';
 
 interface HealthData {
   status: string;
@@ -22,8 +23,7 @@ export default function HealthPage() {
     setLoading(true);
     setError(null);
     try {
-      const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
-      const res = await fetch(`${apiBase}/health`);
+      const res = await fetch(`${API_BASE_URL}/health`);
       if (!res.ok) throw new Error('API server returned error');
       const data = await res.json();
       setHealth(data);

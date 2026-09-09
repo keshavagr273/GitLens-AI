@@ -10,7 +10,7 @@ import {
   ChatMessage,
 } from '@gitlens/shared-types';
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 
 export async function fetchRepositories(): Promise<Repository[]> {
   try {

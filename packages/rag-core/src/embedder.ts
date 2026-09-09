@@ -1,4 +1,6 @@
-export const EMBEDDING_DIMENSION = 384;
+import { config } from '@gitlens/config';
+
+export const EMBEDDING_DIMENSION = config.EMBEDDING_DIMENSION || 384;
 
 export function generateDenseEmbedding(text: string): number[] {
   const vector = new Array<number>(EMBEDDING_DIMENSION).fill(0);
