@@ -37,6 +37,17 @@ export async function ingestRepository(url: string): Promise<{ repository: Repos
   return res.json();
 }
 
+export async function fetchAnalysisStatus(analysisId: string): Promise<RepositoryAnalysis | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/analyses/${analysisId}`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.analysis || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchRepositoryById(id: string): Promise<{ repository: Repository; latestAnalysis: RepositoryAnalysis | null }> {
   const res = await fetch(`${API_BASE_URL}/api/repositories/${id}`);
   if (!res.ok) throw new Error('Repository not found');

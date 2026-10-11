@@ -45,12 +45,23 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ error: 'Analysis not found' });
     }
 
+    // @fastify/cors stores its headers on the Fastify reply, and they are only
+    // written to the socket by reply.send(). This handler writes to reply.raw
+    // directly, so they have to be copied across by hand - without them the
+    // browser rejects the cross-origin EventSource before the first event and
+    // the client never learns the analysis finished.
+    for (const [key, value] of Object.entries(reply.getHeaders())) {
+      if (value !== undefined) {
+        reply.raw.setHeader(key, value as number | string | string[]);
+      }
+    }
+
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache, no-transform');
     reply.raw.setHeader('Connection', 'keep-alive');
-    // Let the CORS plugin own the origin header so a configured origin is
-    // not overridden by a hardcoded wildcard.
     reply.raw.setHeader('X-Accel-Buffering', 'no');
+    // Fastify must not try to send a payload of its own over this stream.
+    reply.hijack();
     reply.raw.flushHeaders();
 
     let closed = false;

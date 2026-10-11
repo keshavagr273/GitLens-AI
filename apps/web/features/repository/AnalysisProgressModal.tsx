@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnalysisProgressEvent, AnalysisStage } from '@gitlens/shared-types';
 import { CheckCircle2, Loader2, AlertCircle, Sparkles, Terminal } from 'lucide-react';
-import { API_BASE_URL } from '../../lib/api';
+import { API_BASE_URL, fetchAnalysisStatus } from '../../lib/api';
 
 interface Props {
   analysisId: string;
@@ -28,44 +28,109 @@ export function AnalysisProgressModal({ analysisId, isOpen, onComplete, onClose 
   const [isDone, setIsDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Holding the callback in a ref keeps an unrelated parent re-render from
+  // tearing down and restarting the progress stream mid-analysis.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
   useEffect(() => {
     if (!isOpen || !analysisId) return;
 
+    let settled = false;
+    let sawLiveEvent = false;
+    let streamFailures = 0;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
     const eventSource = new EventSource(`${API_BASE_URL}/api/analyses/${analysisId}/progress`);
+
+    const appendLog = (message: string) =>
+      setLogs((prev) => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] ${message}`]);
+
+    const succeed = () => {
+      if (settled) return;
+      settled = true;
+      setIsDone(true);
+      eventSource.close();
+      setTimeout(() => onCompleteRef.current(), 1000);
+    };
+
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true;
+      setError(message);
+      eventSource.close();
+    };
+
+    // The stream can be cut by a proxy, or refused outright, before it ever
+    // delivers an event. The analysis record is the source of truth, so poll it
+    // as a safety net: the workspace must only open once its data exists.
+    const poll = async () => {
+      const analysis = await fetchAnalysisStatus(analysisId);
+      if (settled) return;
+
+      if (analysis?.status === 'COMPLETED') {
+        appendLog('Analysis complete.');
+        succeed();
+        return;
+      }
+      if (analysis?.status === 'FAILED') {
+        fail(analysis.error || 'Analysis failed.');
+        return;
+      }
+      if (analysis && !sawLiveEvent) {
+        setCurrentEvent({
+          analysisId,
+          stage: analysis.stage,
+          progress: analysis.progress ?? 0,
+          processedFiles: analysis.processedFiles ?? 0,
+          totalFiles: analysis.totalFiles ?? 0,
+          message: `Stage: ${analysis.stage}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      pollTimer = setTimeout(poll, 2000);
+    };
+
+    pollTimer = setTimeout(poll, 2000);
 
     eventSource.onmessage = (event) => {
       try {
         const data: AnalysisProgressEvent = JSON.parse(event.data);
+        sawLiveEvent = true;
         setCurrentEvent(data);
-        setLogs((prev) => [...prev.slice(-15), `[${new Date().toLocaleTimeString()}] ${data.message}`]);
+        appendLog(data.message);
 
         if (data.stage === 'COMPLETED') {
-          setIsDone(true);
-          eventSource.close();
-          setTimeout(() => {
-            onComplete();
-          }, 1000);
+          succeed();
         } else if (data.stage === 'FAILED') {
-          setError(data.message || 'Analysis failed.');
-          eventSource.close();
+          fail(data.message || 'Analysis failed.');
         }
       } catch (err) {
         console.error('Failed to parse SSE event', err);
       }
     };
 
+    // A dropped stream is not a finished analysis. Let the poll decide, and
+    // stop the browser's reconnect loop once the stream is clearly unusable.
     eventSource.onerror = () => {
-      setIsDone(true);
-      eventSource.close();
-      setTimeout(() => {
-        onComplete();
-      }, 1200);
+      if (settled) return;
+      streamFailures += 1;
+      if (streamFailures === 1) {
+        appendLog('Live stream interrupted - polling analysis status...');
+      }
+      if (streamFailures >= 3 && !sawLiveEvent) {
+        eventSource.close();
+      }
     };
 
     return () => {
+      settled = true;
+      if (pollTimer) clearTimeout(pollTimer);
       eventSource.close();
     };
-  }, [analysisId, isOpen, onComplete]);
+  }, [analysisId, isOpen]);
 
   if (!isOpen) return null;
 

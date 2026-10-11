@@ -67,6 +67,8 @@ export default function WorkspacePage() {
   } = useWorkspaceStore();
 
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Loading Codebase Architecture & AST Graph...');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [symbols, setSymbols] = useState<SymbolNode[]>([]);
   const [activeSymbolId, setActiveSymbolId] = useState<string | undefined>();
   const [isOmnibarOpen, setIsOmnibarOpen] = useState(false);
@@ -127,11 +129,36 @@ export default function WorkspacePage() {
 
   // Load all initial repository workspace data
   useEffect(() => {
+    let cancelled = false;
+
     async function loadWorkspace() {
       setLoading(true);
+      setLoadError(null);
       try {
-        const repoData = await fetchRepositoryById(repoId);
-        setRepository(repoData.repository, repoData.latestAnalysis);
+        // The files/symbols/routes endpoints answer 200 with empty collections
+        // while the analysis is still running, which would render an empty
+        // workspace for good. Wait for the analysis to land before reading it.
+        let repoData = await fetchRepositoryById(repoId);
+        let analysis = repoData.latestAnalysis;
+
+        while (!cancelled && analysis && analysis.status !== 'COMPLETED' && analysis.status !== 'FAILED') {
+          setLoadingMessage(`Analysis in progress — ${analysis.stage.toLowerCase()} (${Math.round((analysis.progress || 0) * 100)}%)...`);
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          if (cancelled) return;
+          repoData = await fetchRepositoryById(repoId);
+          analysis = repoData.latestAnalysis;
+        }
+        if (cancelled) return;
+
+        setRepository(repoData.repository, analysis);
+
+        if (analysis?.status === 'FAILED') {
+          setLoadError(analysis.error || 'Analysis failed for this repository.');
+          setLoading(false);
+          return;
+        }
+
+        setLoadingMessage('Loading Codebase Architecture & AST Graph...');
 
         const [fileList, graphData, routeList, techList, symbolList] = await Promise.all([
           fetchFiles(repoId),
@@ -159,12 +186,19 @@ export default function WorkspacePage() {
         }
       } catch (err) {
         console.error('Failed to load workspace', err);
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load workspace.');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadWorkspace();
+
+    return () => {
+      cancelled = true;
+    };
   }, [repoId, setRepository, setFiles, setActiveFile, setGraphData, setRoutes, setSelectedRoute, setActiveTrace, setTechnologies]);
 
   // Handle switching graph visualization modes
@@ -244,8 +278,27 @@ export default function WorkspacePage() {
             <Network className="h-5 w-5" />
           </div>
           <p className="font-mono text-xs text-[#a09f9c] tracking-widest uppercase">
-            Loading Codebase Architecture & AST Graph...
+            {loadingMessage}
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#0a0a0b] text-[#f5f3ee] font-sans px-6">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center">
+          <div className="h-10 w-10 rounded-[3px] bg-[#141312] border border-red-800/60 flex items-center justify-center text-red-400">
+            <Network className="h-5 w-5" />
+          </div>
+          <p className="font-mono text-xs text-red-300 tracking-wide">{loadError}</p>
+          <Link
+            href="/"
+            className="font-mono text-[11px] uppercase tracking-widest text-[#e8a33d] hover:text-[#f5f3ee] transition-colors"
+          >
+            Back to repositories
+          </Link>
         </div>
       </div>
     );
