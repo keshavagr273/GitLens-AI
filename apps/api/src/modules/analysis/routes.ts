@@ -14,12 +14,11 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
 
     const analysis = await db.createAnalysis(repo.id, 'HEAD');
 
-    // Trigger pipeline asynchronously in background
-    setTimeout(() => {
-      ingestionPipeline.run(repo.id, analysis.id).catch((err: any) => {
-        console.error('Background ingestion error:', err);
-      });
-    }, 50);
+    // Trigger pipeline asynchronously in background. runOnce de-duplicates
+    // against the run the SSE progress stream may also start.
+    ingestionPipeline.runOnce(repo.id, analysis.id).catch((err: any) => {
+      fastify.log.error({ err, analysisId: analysis.id }, 'Background ingestion failed');
+    });
 
     return reply.status(202).send({
       message: 'Analysis job queued successfully',
@@ -49,25 +48,43 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
     reply.raw.setHeader('Content-Type', 'text/event-stream');
     reply.raw.setHeader('Cache-Control', 'no-cache, no-transform');
     reply.raw.setHeader('Connection', 'keep-alive');
-    reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+    // Let the CORS plugin own the origin header so a configured origin is
+    // not overridden by a hardcoded wildcard.
+    reply.raw.setHeader('X-Accel-Buffering', 'no');
     reply.raw.flushHeaders();
 
+    let closed = false;
     const sendEvent = (event: AnalysisProgressEvent) => {
+      if (closed) return;
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
     };
 
+    // Proxies drop idle connections; a periodic comment keeps the stream
+    // alive during long FETCHING stages that emit no events.
+    const heartbeat = setInterval(() => {
+      if (!closed) reply.raw.write(': keepalive' + String.fromCharCode(10, 10));
+    }, 15000);
+
+    const finish = () => {
+      if (closed) return;
+      closed = true;
+      clearInterval(heartbeat);
+      reply.raw.end();
+    };
+
     // If already completed, emit completed event immediately
-    if (analysis.status === 'COMPLETED') {
+    if (analysis.status === 'COMPLETED' || analysis.status === 'FAILED') {
+      const total = analysis.totalFiles ?? 0;
       sendEvent({
         analysisId: analysis.id,
-        stage: 'COMPLETED',
+        stage: analysis.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED',
         progress: 1.0,
-        processedFiles: analysis.totalFiles || 148,
-        totalFiles: analysis.totalFiles || 148,
-        message: 'Analysis already completed.',
+        processedFiles: analysis.processedFiles ?? total,
+        totalFiles: total,
+        message: analysis.status === 'COMPLETED' ? 'Analysis already completed.' : analysis.error || 'Analysis failed.',
         timestamp: new Date().toISOString(),
       });
-      reply.raw.end();
+      finish();
       return;
     }
 
@@ -77,20 +94,21 @@ export const analysisRoutes: FastifyPluginAsync = async (fastify) => {
       if (event.stage === 'COMPLETED' || event.stage === 'FAILED') {
         setTimeout(() => {
           unsubscribe();
-          reply.raw.end();
+          finish();
         }, 500);
       }
     });
 
-    // If analysis was queued but not yet started, kick off run
-    if (analysis.status === 'QUEUED') {
-      ingestionPipeline.run(analysis.repositoryId, analysis.id).catch((err: any) => {
-        console.error('Ingestion run error:', err);
+    // If analysis was queued and nothing is running it yet, start it.
+    if (analysis.status === 'QUEUED' && !ingestionPipeline.isRunning(analysis.id)) {
+      ingestionPipeline.runOnce(analysis.repositoryId, analysis.id).catch((err: any) => {
+        fastify.log.error({ err, analysisId: analysis.id }, 'Ingestion run failed');
       });
     }
 
     request.raw.on('close', () => {
       unsubscribe();
+      finish();
     });
   });
 };

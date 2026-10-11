@@ -6,6 +6,11 @@ import {
   Server,
   Database,
   Code2,
+  Globe,
+  Cog,
+  Cpu,
+  Layers,
+  Maximize2,
   ZoomIn,
   ZoomOut,
   RefreshCw,
@@ -30,6 +35,38 @@ interface NodePosition {
   y: number;
 }
 
+const NODE_WIDTH = 260;
+const NODE_HEIGHT = 100;
+
+/**
+ * One accent per architectural layer. Every node previously rendered in the
+ * same amber, which made it impossible to tell a gateway from a datastore
+ * without opening the inspector.
+ */
+const LAYER_STYLES: Record<string, { accent: string; label: string; Icon: typeof Server }> = {
+  client:     { accent: '#60a5fa', label: 'Client',     Icon: Globe },
+  gateway:    { accent: '#e8a33d', label: 'Gateway',    Icon: Server },
+  controller: { accent: '#c084fc', label: 'Controller', Icon: Code2 },
+  service:    { accent: '#34d399', label: 'Service',    Icon: Cog },
+  worker:     { accent: '#fb923c', label: 'Worker',     Icon: Cpu },
+  database:   { accent: '#38bdf8', label: 'Database',   Icon: Database },
+  cache:      { accent: '#f472b6', label: 'Cache',      Icon: Layers },
+  default:    { accent: '#94a3b8', label: 'Module',     Icon: Code2 },
+};
+
+const layerStyle = (layer: string) => LAYER_STYLES[layer] || LAYER_STYLES.default;
+
+/** Human wording for the stored relationship types. */
+const EDGE_LABELS: Record<string, string> = {
+  CALLS: 'calls',
+  ROUTES_TO: 'routes to',
+  IMPORTS: 'imports',
+  READS: 'reads',
+  WRITES: 'writes',
+  EXTENDS: 'extends',
+  IMPLEMENTS: 'implements',
+};
+
 export function GraphCanvas({
   nodes,
   edges,
@@ -50,10 +87,12 @@ export function GraphCanvas({
   const dragMovedRef = useRef(false);
   const dragStartCoordsRef = useRef({ x: 0, y: 0 });
 
-  // Reset custom positions when nodes change radically
+  // Reset drag positions when the node set changes. Keying on length alone
+  // kept stale coordinates when switching between graphs of equal size.
+  const nodeIdSignature = useMemo(() => nodes.map((n) => n.id).join('|'), [nodes]);
   useEffect(() => {
     setCustomPositions(new Map());
-  }, [nodes.length]);
+  }, [nodeIdSignature]);
 
   // Initial computed layout positions for nodes
   const initialPositions = useMemo(() => {
@@ -98,7 +137,12 @@ export function GraphCanvas({
     ].filter((l) => l.length > 0);
 
     let currentY = 50;
-    const maxCols = 3;
+
+    // Columns scale with the widest tier so a 25-package dependency graph does
+    // not become a 9-row vertical ribbon that nobody can read.
+    const widestTier = layers.reduce((max, l) => Math.max(max, l.length), 1);
+    const maxCols = Math.min(6, Math.max(3, Math.ceil(Math.sqrt(widestTier * 1.6))));
+    const canvasCenterX = (maxCols * horizontalSpacing) / 2;
 
     layers.forEach((layer) => {
       const rowCount = Math.ceil(layer.length / maxCols);
@@ -106,7 +150,7 @@ export function GraphCanvas({
       for (let r = 0; r < rowCount; r++) {
         const rowNodes = layer.slice(r * maxCols, (r + 1) * maxCols);
         const totalWidth = rowNodes.length * horizontalSpacing;
-        const startX = 650 - totalWidth / 2 + 20;
+        const startX = canvasCenterX - totalWidth / 2 + (horizontalSpacing - NODE_WIDTH) / 2;
 
         rowNodes.forEach((node, colIdx) => {
           positions.set(node.id, {
@@ -123,14 +167,52 @@ export function GraphCanvas({
     nodes.forEach((node, idx) => {
       if (!positions.has(node.id)) {
         positions.set(node.id, {
-          x: 200 + (idx % 3) * horizontalSpacing,
-          y: currentY + Math.floor(idx / 3) * verticalSpacing,
+          x: 200 + (idx % maxCols) * horizontalSpacing,
+          y: currentY + Math.floor(idx / maxCols) * verticalSpacing,
         });
       }
     });
 
     return positions;
   }, [nodes]);
+
+  /** Bounding box of the laid-out graph, used to frame it in the viewport. */
+  const layoutBounds = useMemo(() => {
+    const all = nodes.map((n) => customPositions.get(n.id) || initialPositions.get(n.id)).filter(Boolean) as NodePosition[];
+    if (all.length === 0) return null;
+    const minX = Math.min(...all.map((p) => p.x));
+    const minY = Math.min(...all.map((p) => p.y));
+    const maxX = Math.max(...all.map((p) => p.x + NODE_WIDTH));
+    const maxY = Math.max(...all.map((p) => p.y + NODE_HEIGHT));
+    return { minX, minY, width: maxX - minX, height: maxY - minY };
+  }, [nodes, initialPositions, customPositions]);
+
+  /** Centres and scales the graph so the whole diagram is visible at once. */
+  const fitToView = React.useCallback(() => {
+    const el = containerRef.current;
+    if (!el || !layoutBounds) return;
+    const padding = 80;
+    const vw = el.clientWidth - padding * 2;
+    const vh = el.clientHeight - padding * 2;
+    if (vw <= 0 || vh <= 0) return;
+
+    const nextZoom = Math.min(1.2, Math.max(0.25, Math.min(vw / layoutBounds.width, vh / layoutBounds.height)));
+    setZoom(nextZoom);
+    setPan({
+      x: padding + (vw - layoutBounds.width * nextZoom) / 2 - layoutBounds.minX * nextZoom,
+      y: padding + (vh - layoutBounds.height * nextZoom) / 2 - layoutBounds.minY * nextZoom,
+    });
+  }, [layoutBounds]);
+
+  // Frame each newly loaded graph instead of leaving it at a fixed zoom/offset
+  // that cut large diagrams off at the edges of the canvas.
+  const fitSignature = useMemo(() => nodes.map((n) => n.id).join('|'), [nodes]);
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    const raf = requestAnimationFrame(fitToView);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitSignature]);
 
   const getNodePos = (nodeId: string): NodePosition => {
     return customPositions.get(nodeId) || initialPositions.get(nodeId) || { x: 100, y: 100 };
@@ -198,11 +280,27 @@ export function GraphCanvas({
   };
 
   const resetView = () => {
-    setZoom(0.55);
-    setPan({ x: 20, y: 15 });
     setCustomPositions(new Map());
     onSelectNode(null);
+    requestAnimationFrame(fitToView);
   };
+
+  /**
+   * Edge labels only earn their space when edges actually differ. A dependency
+   * graph where every link is "imports" reads better without 25 copies of the
+   * same word; the relationship is then shown in the legend instead.
+   */
+  const uniformEdgeType = useMemo(() => {
+    if (edges.length < 2) return null;
+    const first = edges[0]?.type;
+    return edges.every((e) => e.type === first) ? String(first) : null;
+  }, [edges]);
+
+  const visibleLayers = useMemo(() => {
+    const present = new Set<string>();
+    for (const n of nodes) present.add((n.metadata?.layer as string) || 'default');
+    return Object.keys(LAYER_STYLES).filter((l) => present.has(l));
+  }, [nodes]);
 
   const connectedNodeIds = useMemo(() => {
     if (!selectedNode) return new Set<string>();
@@ -277,9 +375,16 @@ export function GraphCanvas({
           <ZoomOut className="h-4 w-4" />
         </button>
         <button
+          onClick={fitToView}
+          className="p-1.5 rounded text-[#a09f9c] hover:text-[#f5f3ee] transition-colors"
+          title="Fit graph to view"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+        <button
           onClick={resetView}
           className="p-1.5 rounded text-[#a09f9c] hover:text-[#f5f3ee] transition-colors"
-          title="Reset View"
+          title="Reset layout"
         >
           <RefreshCw className="h-4 w-4" />
         </button>
@@ -333,11 +438,10 @@ export function GraphCanvas({
             const isHighlighted = isSourceSelected || isTargetSelected;
             const isDimmed = selectedNode && !isHighlighted;
 
-            // Updated for 260px wide by 100px tall nodes
-            const srcCenterX = sourcePos.x + 130;
-            const srcCenterY = sourcePos.y + 50;
-            const tgtCenterX = targetPos.x + 130;
-            const tgtCenterY = targetPos.y + 50;
+            const srcCenterX = sourcePos.x + NODE_WIDTH / 2;
+            const srcCenterY = sourcePos.y + NODE_HEIGHT / 2;
+            const tgtCenterX = targetPos.x + NODE_WIDTH / 2;
+            const tgtCenterY = targetPos.y + NODE_HEIGHT / 2;
 
             const dx = tgtCenterX - srcCenterX;
             const dy = tgtCenterY - srcCenterY;
@@ -348,7 +452,7 @@ export function GraphCanvas({
             if (Math.abs(dy) >= Math.abs(dx)) {
               if (dy >= 0) {
                 startX = srcCenterX;
-                startY = sourcePos.y + 100;
+                startY = sourcePos.y + NODE_HEIGHT;
                 endX = tgtCenterX;
                 endY = targetPos.y;
                 controlX1 = startX;
@@ -359,7 +463,7 @@ export function GraphCanvas({
                 startX = srcCenterX;
                 startY = sourcePos.y;
                 endX = tgtCenterX;
-                endY = targetPos.y + 100;
+                endY = targetPos.y + NODE_HEIGHT;
                 controlX1 = startX;
                 controlY1 = startY + dy * 0.45;
                 controlX2 = endX;
@@ -367,7 +471,7 @@ export function GraphCanvas({
               }
             } else {
               if (dx >= 0) {
-                startX = sourcePos.x + 260;
+                startX = sourcePos.x + NODE_WIDTH;
                 startY = srcCenterY;
                 endX = targetPos.x;
                 endY = tgtCenterY;
@@ -378,7 +482,7 @@ export function GraphCanvas({
               } else {
                 startX = sourcePos.x;
                 startY = srcCenterY;
-                endX = targetPos.x + 260;
+                endX = targetPos.x + NODE_WIDTH;
                 endY = tgtCenterY;
                 controlX1 = startX + dx * 0.45;
                 controlY1 = startY;
@@ -389,16 +493,48 @@ export function GraphCanvas({
 
             const pathD = `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
 
+            // Relationship wording at the curve midpoint: without it every edge
+            // looked identical and the diagram said nothing about direction.
+            const label = uniformEdgeType
+              ? ''
+              : EDGE_LABELS[edge.type] || String(edge.type || '').toLowerCase();
+            const midX = (startX + endX) / 2;
+            const midY = (startY + endY) / 2;
+            const labelWidth = Math.max(34, label.length * 6.2 + 12);
+
             return (
-              <g key={edge.id} className="transition-opacity duration-200" opacity={isDimmed ? 0.15 : 1.0}>
+              <g key={edge.id} className="transition-opacity duration-200" opacity={isDimmed ? 0.12 : 1.0}>
                 <path
                   d={pathD}
                   fill="none"
-                  stroke={isHighlighted ? '#e8a33d' : 'rgba(245, 243, 238, 0.42)'}
-                  strokeWidth={isHighlighted ? 2.5 : 1.5}
-                  strokeDasharray={edge.confidence === 'inferred' ? '4,4' : undefined}
+                  stroke={isHighlighted ? '#e8a33d' : 'rgba(245, 243, 238, 0.32)'}
+                  strokeWidth={isHighlighted ? 2.5 : 1.4}
+                  strokeDasharray={edge.confidence === 'inferred' ? '5,4' : undefined}
                   markerEnd={isHighlighted ? 'url(#arrow-amber)' : 'url(#arrow-subtle)'}
                 />
+                {label && (
+                  <g>
+                    <rect
+                      x={midX - labelWidth / 2}
+                      y={midY - 9}
+                      width={labelWidth}
+                      height={18}
+                      rx={3}
+                      fill="#0a0a0b"
+                      stroke={isHighlighted ? 'rgba(232,163,61,0.55)' : 'rgba(255,255,255,0.10)'}
+                    />
+                    <text
+                      x={midX}
+                      y={midY + 4}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fontFamily="ui-monospace, monospace"
+                      fill={isHighlighted ? '#e8a33d' : '#8b8a87'}
+                    >
+                      {label}
+                    </text>
+                  </g>
+                )}
               </g>
             );
           })}
@@ -413,6 +549,8 @@ export function GraphCanvas({
           const isBeingDragged = draggingNodeId === node.id;
 
           const layer = (node.metadata?.layer as string) || 'default';
+          const style = layerStyle(layer);
+          const LayerIcon = style.Icon;
 
           return (
             <div
@@ -429,32 +567,35 @@ export function GraphCanvas({
               style={{
                 left: `${pos.x}px`,
                 top: `${pos.y}px`,
-                width: '260px',
+                width: `${NODE_WIDTH}px`,
                 zIndex: isBeingDragged ? 50 : isSelected ? 40 : 10,
+                borderColor: isDimmed
+                  ? 'rgba(255,255,255,0.05)'
+                  : isSelected || isBeingDragged
+                  ? style.accent
+                  : `${style.accent}44`,
+                boxShadow: isSelected || isBeingDragged ? `0 0 20px ${style.accent}40` : undefined,
+                // Left rail carries the layer colour so the tier is readable at
+                // a glance even when the diagram is zoomed out.
+                borderLeft: `3px solid ${isDimmed ? 'rgba(255,255,255,0.08)' : style.accent}`,
               }}
               className={`canvas-node absolute p-4 rounded-[4px] bg-[#141312] border cursor-grab active:cursor-grabbing transition-all duration-150 ${
-                isDimmed
-                  ? 'opacity-25 border-white/5'
-                  : isSelected
-                  ? 'border-[#e8a33d] shadow-[0_0_20px_rgba(232,163,61,0.35)] ring-1 ring-[#e8a33d]/50'
-                  : isBeingDragged
-                  ? 'border-[#e8a33d] shadow-[0_0_20px_rgba(232,163,61,0.35)]'
-                  : 'border-white/10 hover:border-[#e8a33d]/60'
+                isDimmed ? 'opacity-25' : 'hover:brightness-125'
               }`}
             >
               <div className="flex items-center justify-between mb-2.5">
-                <div className="h-7 w-7 rounded-[3px] bg-[#0a0a0b] border border-white/10 flex items-center justify-center text-[#e8a33d]">
-                  {node.type === 'module' ? (
-                    <Server className="h-4 w-4" />
-                  ) : node.type === 'database_table' || layer === 'database' ? (
-                    <Database className="h-4 w-4" />
-                  ) : (
-                    <Code2 className="h-4 w-4" />
-                  )}
+                <div
+                  className="h-7 w-7 rounded-[3px] bg-[#0a0a0b] border flex items-center justify-center"
+                  style={{ color: style.accent, borderColor: `${style.accent}55` }}
+                >
+                  <LayerIcon className="h-4 w-4" />
                 </div>
 
-                <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-[2px] bg-[#0a0a0b] text-[#e8a33d] border border-[#e8a33d]/30">
-                  {layer}
+                <span
+                  className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-[2px] bg-[#0a0a0b] border"
+                  style={{ color: style.accent, borderColor: `${style.accent}55` }}
+                >
+                  {style.label}
                 </span>
               </div>
 
@@ -474,6 +615,40 @@ export function GraphCanvas({
           );
         })}
       </div>
+
+      {/* Legend - only lists layers present in the current graph */}
+      {visibleLayers.length > 0 && (
+        <div className="absolute bottom-3 right-3 z-30 bg-[#141312]/95 border border-white/8 rounded-[3px] px-3 py-2.5 font-mono backdrop-blur-sm">
+          <div className="text-[9px] uppercase tracking-wider text-[#6b6a67] mb-1.5">Layers</div>
+          <div className="flex flex-col gap-1">
+            {visibleLayers.map((layer) => {
+              const st = layerStyle(layer);
+              return (
+                <div key={layer} className="flex items-center gap-2 text-[10px] text-[#a09f9c]">
+                  <span className="h-2 w-2 rounded-[1px] shrink-0" style={{ background: st.accent }} />
+                  <span>{st.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-2 pt-2 border-t border-white/8 space-y-1">
+            {uniformEdgeType && (
+              <div className="flex items-center gap-2 text-[9px] text-[#6b6a67]">
+                <svg width="24" height="6" aria-hidden>
+                  <line x1="0" y1="3" x2="24" y2="3" stroke="#8b8a87" strokeWidth="1.4" />
+                </svg>
+                <span>all links: {EDGE_LABELS[uniformEdgeType] || uniformEdgeType.toLowerCase()}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-[9px] text-[#6b6a67]">
+              <svg width="24" height="6" aria-hidden>
+                <line x1="0" y1="3" x2="24" y2="3" stroke="#8b8a87" strokeWidth="1.4" strokeDasharray="5,4" />
+              </svg>
+              <span>inferred link</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Node Inspector Drawer */}
       {selectedNode && (

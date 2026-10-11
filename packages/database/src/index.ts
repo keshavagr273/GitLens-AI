@@ -38,8 +38,38 @@ export class DatabaseStore {
   private depEdges: Map<string, GraphEdge[]> = new Map();
   private traces: Map<string, RequestFlowTrace> = new Map();
 
+  /**
+   * Analyses hold full file contents in memory. Without a cap, re-analysing a
+   * repository grows the process heap until it is restarted.
+   */
+  private static readonly MAX_ANALYSES_PER_REPO = 3;
+
   constructor() {
     this.seed();
+  }
+
+  /** Removes every payload keyed by an analysis id. */
+  private dropAnalysisData(analysisId: string) {
+    this.files.delete(analysisId);
+    this.symbols.delete(analysisId);
+    this.routes.delete(analysisId);
+    this.technologies.delete(analysisId);
+    this.graphNodes.delete(analysisId);
+    this.graphEdges.delete(analysisId);
+    this.depNodes.delete(analysisId);
+    this.depEdges.delete(analysisId);
+  }
+
+  /** Keeps only the newest N analyses for a repository, freeing the rest. */
+  private pruneAnalyses(repositoryId: string) {
+    const owned = Array.from(this.analyses.entries())
+      .filter(([key, a]) => !key.startsWith('repo:') && a.repositoryId === repositoryId)
+      .sort(([, a], [, b]) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    for (const [key, analysis] of owned.slice(DatabaseStore.MAX_ANALYSES_PER_REPO)) {
+      this.analyses.delete(key);
+      this.dropAnalysisData(analysis.id);
+    }
   }
 
   private seed() {
@@ -91,18 +121,26 @@ export class DatabaseStore {
   }
 
   async deleteRepository(id: string): Promise<boolean> {
-    const repo = this.repositories.get(id);
-    if (!repo) {
-      // Try to find by matching owner/name
+    let targetId: string | null = this.repositories.has(id) ? id : null;
+
+    if (!targetId) {
       for (const [key, r] of this.repositories.entries()) {
         if (r.id === id || `${r.owner}/${r.name}` === id) {
-          this.repositories.delete(key);
-          return true;
+          targetId = key;
+          break;
         }
       }
-      return false;
     }
-    this.repositories.delete(id);
+    if (!targetId) return false;
+
+    // Cascade: dropping only the repository row leaked every analysis payload.
+    for (const [key, analysis] of Array.from(this.analyses.entries())) {
+      if (analysis.repositoryId === targetId) {
+        this.analyses.delete(key);
+        this.dropAnalysisData(analysis.id);
+      }
+    }
+    this.repositories.delete(targetId);
     return true;
   }
 
@@ -188,6 +226,7 @@ export class DatabaseStore {
     };
     this.analyses.set(id, analysis);
     this.analyses.set(`repo:${repositoryId}`, analysis);
+    this.pruneAnalyses(repositoryId);
     return analysis;
   }
 
@@ -244,7 +283,7 @@ export class DatabaseStore {
 
   // --- Files & Symbols ---
   async getFilesForAnalysis(analysisId: string): Promise<SourceFile[]> {
-    return this.files.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.files.get('analysis-fastify-001') || [] : []);
+    return this.files.get(analysisId) || [];
   }
 
   async getFileById(analysisId: string, fileId: string): Promise<SourceFile | null> {
@@ -253,7 +292,7 @@ export class DatabaseStore {
   }
 
   async getSymbolsForAnalysis(analysisId: string): Promise<SymbolNode[]> {
-    return this.symbols.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.symbols.get('analysis-fastify-001') || [] : []);
+    return this.symbols.get(analysisId) || [];
   }
 
   // --- Graph ---
@@ -268,23 +307,23 @@ export class DatabaseStore {
         return { nodes: depN, edges: depE || [] };
       }
     }
-    const nodes = this.graphNodes.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.graphNodes.get('analysis-fastify-001') || [] : []);
-    const edges = this.graphEdges.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.graphEdges.get('analysis-fastify-001') || [] : []);
+    const nodes = this.graphNodes.get(analysisId) || [];
+    const edges = this.graphEdges.get(analysisId) || [];
     return { nodes, edges };
   }
 
   // --- Routes & Traces ---
   async getRoutesForAnalysis(analysisId: string): Promise<ApiRoute[]> {
-    return this.routes.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.routes.get('analysis-fastify-001') || [] : []);
+    return this.routes.get(analysisId) || [];
   }
 
   async getRequestFlowTrace(routeId: string): Promise<RequestFlowTrace | null> {
-    return this.traces.get(routeId) || (routeId === 'route-post-orders' ? this.traces.get('route-post-orders') || null : null);
+    return this.traces.get(routeId) || null;
   }
 
   // --- Technologies ---
   async getTechnologiesForAnalysis(analysisId: string): Promise<Technology[]> {
-    return this.technologies.get(analysisId) || (analysisId === 'analysis-fastify-001' ? this.technologies.get('analysis-fastify-001') || [] : []);
+    return this.technologies.get(analysisId) || [];
   }
 
   // --- Chunks ---

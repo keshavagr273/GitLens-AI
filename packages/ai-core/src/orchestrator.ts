@@ -5,6 +5,10 @@ import { config } from '@gitlens/config';
 import { checkPromptSafety, sanitizeAiOutput } from './guardrails';
 import { verifyCitations } from './citation-verifier';
 
+const DEFAULT_MODEL = 'openai/gpt-oss-120b';
+const LLM_TIMEOUT_MS = 45_000;
+const LLM_MAX_TOKENS = 2048;
+
 export interface OrchestrationContext {
   repositoryId: string;
   sessionId?: string;
@@ -69,11 +73,11 @@ Please ask a question related to this repository (e.g. *'How does document uploa
 
     // 4. Try Live LLM Generation via Groq if key is configured
     if (groqKey && (config.LLM_PROVIDER === 'groq' || groqKey.startsWith('gsk_'))) {
-      const candidateModels = [
-        config.GROQ_MODEL || 'openai/gpt-oss-120b',
-        'openai/gpt-oss-20b',
-        'qwen/qwen3.6-27b',
-      ];
+      // Deduplicated so a configured model is not retried twice, and without
+      // the previously listed 'qwen/qwen3.6-27b', which Groq does not serve.
+      const candidateModels = Array.from(
+        new Set([config.GROQ_MODEL || DEFAULT_MODEL, DEFAULT_MODEL, 'openai/gpt-oss-20b'])
+      );
 
       // Assemble rich architectural grounding context
       const controllersList = symbols
@@ -124,6 +128,9 @@ ${safety.sanitizedPrompt}`;
               'Content-Type': 'application/json',
               Authorization: `Bearer ${groqKey.trim()}`,
             },
+            // Without a timeout a stalled provider holds the HTTP request open
+            // until the client gives up.
+            signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
             body: JSON.stringify({
               model,
               messages: [
@@ -131,14 +138,20 @@ ${safety.sanitizedPrompt}`;
                 { role: 'user', content: userContent },
               ],
               temperature: 0.3,
-              max_tokens: 1024,
+              max_tokens: LLM_MAX_TOKENS,
             }),
           });
 
           if (groqRes.ok) {
             const data = (await groqRes.json()) as any;
-            let generatedText = data.choices?.[0]?.message?.content;
-            if (generatedText) {
+            const choice = data.choices?.[0];
+            // Reasoning models (gpt-oss) can return an empty `content` with the
+            // text in `reasoning` when the budget is spent on deliberation.
+            let generatedText: string = choice?.message?.content || '';
+            if (!generatedText.trim() && choice?.finish_reason === 'length') {
+              generatedText = String(choice?.message?.reasoning || '');
+            }
+            if (generatedText.trim()) {
               // Strip any Qwen thinking tags if present
               generatedText = generatedText.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 

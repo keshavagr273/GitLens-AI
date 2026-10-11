@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import { db } from '@gitlens/database';
 import {
   AnalysisProgressEvent,
@@ -20,6 +18,29 @@ export type ProgressCallback = (event: AnalysisProgressEvent) => void;
 
 export class IngestionPipeline {
   private progressListeners: Map<string, Set<ProgressCallback>> = new Map();
+  /** Analyses currently executing, so the same run is never started twice. */
+  private activeRuns: Map<string, Promise<void>> = new Map();
+
+  /** True while the given analysis is mid-flight. */
+  isRunning(analysisId: string): boolean {
+    return this.activeRuns.has(analysisId);
+  }
+
+  /**
+   * Starts an analysis, or returns the in-flight promise if one is already
+   * running. POST /analyze and the SSE progress stream both trigger a run,
+   * which previously produced two concurrent pipelines writing the same keys.
+   */
+  runOnce(repositoryId: string, analysisId: string): Promise<void> {
+    const existing = this.activeRuns.get(analysisId);
+    if (existing) return existing;
+
+    const task = this.run(repositoryId, analysisId).finally(() => {
+      this.activeRuns.delete(analysisId);
+    });
+    this.activeRuns.set(analysisId, task);
+    return task;
+  }
 
   subscribe(analysisId: string, callback: ProgressCallback): () => void {
     if (!this.progressListeners.has(analysisId)) {
@@ -71,45 +92,9 @@ export class IngestionPipeline {
       this.emitProgress(analysisId, 'FETCHING', 0.1, 0, 0, `Fetching Git tree for ${repo.owner}/${repo.name}...`);
       await db.updateAnalysisProgress(analysisId, { stage: 'FETCHING', progress: 0.1, status: 'RUNNING' });
 
-      // Check if local project directory exists for instant local scanning
-      const localProjectDir = path.join('d:\\Projects', repo.name);
-      const isLocalAvailable = fs.existsSync(localProjectDir);
-
       let fileEntries: Array<{ path: string; content?: string }> = [];
 
-      if (isLocalAvailable) {
-        console.log(`📁 Ingesting repository files from local directory: ${localProjectDir}`);
-        const walk = (dir: string): Array<{ path: string; content: string }> => {
-          let list: Array<{ path: string; content: string }> = [];
-          const files = fs.readdirSync(dir);
-          for (const file of files) {
-            if (
-              file === 'node_modules' ||
-              file === '.git' ||
-              file === '.turbo' ||
-              file === 'dist' ||
-              file === 'build' ||
-              file === 'coverage' ||
-              (file.startsWith('.env') && file !== '.env.example')
-            ) {
-              continue;
-            }
-            const fullPath = path.join(dir, file);
-            const stat = fs.statSync(fullPath);
-            if (stat && stat.isDirectory()) {
-              list = list.concat(walk(fullPath));
-            } else {
-              try {
-                const relPath = path.relative(localProjectDir, fullPath).replace(/\\/g, '/');
-                const content = fs.readFileSync(fullPath, 'utf-8');
-                list.push({ path: relPath, content });
-              } catch {}
-            }
-          }
-          return list;
-        };
-        fileEntries = walk(localProjectDir);
-      } else {
+      {
         const metadata = await githubClient.fetchRepoMetadata(repo.owner, repo.name);
         const rawTree = await githubClient.fetchRecursiveTree(repo.owner, repo.name, metadata.commitSha);
         fileEntries = rawTree.map((e) => ({ path: e.path }));
@@ -166,10 +151,16 @@ export class IngestionPipeline {
           }
         );
 
-        fileEntries = prioritizedCandidates.map((f) => ({
-          path: f.path,
-          content: remoteMap.get(f.path) || '',
-        }));
+        fileEntries = prioritizedCandidates
+          .map((f) => ({ path: f.path, content: remoteMap.get(f.path) || '' }))
+          .filter((f) => f.content.length > 0);
+
+        if (fileEntries.length === 0) {
+          throw new Error(
+            `Downloaded 0 of ${prioritizedCandidates.length} source files from ${repo.owner}/${repo.name}. ` +
+              'The repository may be empty, private, or the GitHub rate limit was exhausted.'
+          );
+        }
       }
 
       await sleep(150);
@@ -194,7 +185,10 @@ export class IngestionPipeline {
           sha: 'blob-sha',
         });
         if (filterResult.process) {
-          const content = entry.content || `// Source code of ${entry.path}\n`;
+          // Skip files whose content could not be retrieved - a placeholder
+          // comment parses to zero symbols and silently empties the graph.
+          if (!entry.content) continue;
+          const content = entry.content;
           filteredFiles.push({
             id: `file-${generateUuid().slice(0, 8)}`,
             analysisId,
@@ -211,6 +205,24 @@ export class IngestionPipeline {
       }
 
       const totalFiles = filteredFiles.length;
+      // Declared dependency names across every package.json in the repository.
+      // Matching these beats substring-scanning all source text, where "pg"
+      // or "express" hit unrelated prose and comments.
+      const declaredDeps = new Set<string>();
+      for (const f of filteredFiles) {
+        if (!f.path.endsWith('package.json') || !f.content) continue;
+        try {
+          const pkg = JSON.parse(f.content);
+          for (const field of ['dependencies', 'devDependencies', 'peerDependencies']) {
+            for (const name of Object.keys(pkg[field] || {})) declaredDeps.add(name);
+          }
+          // A framework's own repository never depends on itself, so count the
+          // package's own name too (e.g. analysing expressjs/express).
+          if (typeof pkg.name === 'string') declaredDeps.add(pkg.name);
+        } catch {}
+      }
+      const hasDep = (...names: string[]) => names.some((n) => declaredDeps.has(n));
+      const hasFile = (pattern: RegExp) => filteredFiles.some((f) => pattern.test(f.path));
       await sleep(150);
 
       // 3. Stage: PARSING & AST extraction
@@ -544,6 +556,14 @@ export class IngestionPipeline {
         const primaryGateway = gatewayFiles[0];
         const apiGatewayId = 'node-api-gateway';
 
+        /**
+         * Edge origins for a downstream layer. Libraries and frameworks have no
+         * controller files; without this the gateway and every other node would
+         * render as disconnected islands.
+         */
+        const edgeSourcesFor = (controllers: string[], fallback: string): string[] =>
+          controllers.length > 0 ? controllers.slice(0, 5) : [fallback];
+
         graphNodes.push({
           id: apiGatewayId,
           type: 'module',
@@ -563,16 +583,26 @@ export class IngestionPipeline {
         });
 
         // Realtime Socket Gateway
-        const socketFiles = filteredFiles.filter(
-          (f) => f.path.toLowerCase().includes('socket') || f.path.toLowerCase().includes('ws')
-        );
-        if (socketFiles.length > 0) {
+        // 'ws' as a bare substring matched any path containing those letters
+        // (e.g. "browser.ts"), inventing a WebSocket gateway that did not exist.
+        const socketFiles = filteredFiles.filter((f) => {
+          const lower = f.path.toLowerCase();
+          return (
+            lower.includes('socket') ||
+            lower.includes('websocket') ||
+            /(^|[\/._-])ws([\/._-]|$)/.test(lower)
+          );
+        });
+        const usesSocketLib =
+          declaredDeps.has('ws') || declaredDeps.has('socket.io') || declaredDeps.has('socket.io-client');
+
+        if (socketFiles.length > 0 || usesSocketLib) {
           const socketId = 'node-socket-gateway';
           graphNodes.push({
             id: socketId,
             type: 'module',
             name: 'Realtime WebSocket Gateway',
-            path: socketFiles[0].path,
+            path: socketFiles[0]?.path || '',
             metadata: {
               layer: 'gateway',
               role: 'Bidirectional WebSocket & Event Streaming Server',
@@ -606,13 +636,37 @@ export class IngestionPipeline {
           );
         });
 
+        /**
+         * Human domain name from a controller/route file path.
+         * The previous regex only stripped dot-separated suffixes, so
+         * "error-handler.js" became the label "Error-handler.jsController".
+         */
+        const domainFromPath = (filePath: string): string => {
+          const base = filePath.split('/').pop() || 'core';
+          const withoutExt = base.replace(/\.[jt]sx?$/, '').replace(/\.d$/, '');
+          const stripped = withoutExt
+            .replace(/[._-](controller|controllers|routes?|router|handler|handlers|endpoint|endpoints)$/i, '')
+            .replace(/^(controller|routes?|router|handler|endpoint)[._-]/i, '');
+          const cleaned = stripped || withoutExt || 'core';
+          // index.js inside a folder is named after the folder it lives in.
+          if (/^index$/i.test(cleaned)) {
+            const parts = filePath.split('/');
+            return parts.length >= 2 ? parts[parts.length - 2] : 'core';
+          }
+          return cleaned;
+        };
+
+        /** "error-handler" -> "ErrorHandler" */
+        const toPascalCase = (value: string): string =>
+          value
+            .split(/[-_.\s]+/)
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join('') || 'Core';
+
         const domainMap = new Map<string, { files: string[]; routes: ApiRoute[] }>();
         for (const cf of controllerFiles) {
-          const baseName =
-            cf.path
-              .split('/')
-              .pop()
-              ?.replace(/\.(controller|routes?|router|handler|endpoint)\.[jt]sx?$/, '') || 'core';
+          const baseName = domainFromPath(cf.path);
           if (!domainMap.has(baseName)) {
             domainMap.set(baseName, { files: [], routes: [] });
           }
@@ -620,11 +674,7 @@ export class IngestionPipeline {
         }
 
         for (const r of allRoutes) {
-          const rBase =
-            r.filePath
-              ?.split('/')
-              .pop()
-              ?.replace(/\.(controller|routes?|router|handler|endpoint)\.[jt]sx?$/, '') || 'core';
+          const rBase = r.filePath ? domainFromPath(r.filePath) : 'core';
           if (domainMap.has(rBase)) {
             domainMap.get(rBase)!.routes.push(r);
           }
@@ -632,8 +682,8 @@ export class IngestionPipeline {
 
         const controllerNodeIds: string[] = [];
         for (const [domain, info] of domainMap.entries()) {
-          const capitalized = domain.charAt(0).toUpperCase() + domain.slice(1);
-          const ctrlId = `ctrl-${domain}`;
+          const capitalized = toPascalCase(domain);
+          const ctrlId = `ctrl-${domain.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
           controllerNodeIds.push(ctrlId);
 
           const funcs = info.routes.map((r) => `${r.method} ${r.path} (${r.handlerName || 'handler'})`);
@@ -697,11 +747,11 @@ export class IngestionPipeline {
             },
           });
 
-          for (const ctrlId of controllerNodeIds.slice(0, 5)) {
+          for (const sourceId of edgeSourcesFor(controllerNodeIds, apiGatewayId)) {
             graphEdges.push({
-              id: `edge-${ctrlId}-mw`,
+              id: `edge-${sourceId}-mw`,
               analysisId,
-              sourceId: ctrlId,
+              sourceId,
               targetId: mwId,
               type: 'CALLS',
               confidence: 'static',
@@ -742,11 +792,11 @@ export class IngestionPipeline {
             },
           });
 
-          for (const ctrlId of controllerNodeIds.slice(0, 5)) {
+          for (const sourceId of edgeSourcesFor(controllerNodeIds, apiGatewayId)) {
             graphEdges.push({
-              id: `edge-${ctrlId}-svc`,
+              id: `edge-${sourceId}-svc`,
               analysisId,
-              sourceId: ctrlId,
+              sourceId,
               targetId: svcId,
               type: 'CALLS',
               confidence: 'static',
@@ -786,6 +836,15 @@ export class IngestionPipeline {
               complexity: 8,
             },
           });
+
+          graphEdges.push({
+            id: 'edge-gw-worker',
+            analysisId,
+            sourceId: apiGatewayId,
+            targetId: workerId,
+            type: 'CALLS',
+            confidence: 'inferred',
+          });
         }
 
         // Database Persistence
@@ -822,11 +881,11 @@ export class IngestionPipeline {
             },
           });
 
-          for (const ctrlId of controllerNodeIds.slice(0, 5)) {
+          for (const sourceId of edgeSourcesFor(controllerNodeIds, apiGatewayId)) {
             graphEdges.push({
-              id: `edge-${ctrlId}-db`,
+              id: `edge-${sourceId}-db`,
               analysisId,
-              sourceId: ctrlId,
+              sourceId,
               targetId: dbNodeId,
               type: 'WRITES',
               confidence: 'static',
@@ -840,7 +899,18 @@ export class IngestionPipeline {
           return lower.includes('redis') || lower.includes('cache') || lower.includes('memcached');
         });
 
-        if (cacheFiles.length > 0 || filteredFiles.some((f) => f.content?.includes('ioredis') || f.content?.includes('redis'))) {
+        // Require a real import or dependency: a bare substring match pulled in
+        // a phantom cache node whenever a changelog merely mentioned "redis".
+        const usesCacheClient =
+          declaredDeps.has('redis') ||
+          declaredDeps.has('ioredis') ||
+          declaredDeps.has('bullmq') ||
+          declaredDeps.has('bull') ||
+          filteredFiles.some((f) =>
+            /(?:require\(|from\s+)['"](?:io)?redis['"]|new\s+Redis\s*\(/.test(f.content || '')
+          );
+
+        if (cacheFiles.length > 0 || usesCacheClient) {
           const cacheId = 'node-cache-store';
           graphNodes.push({
             id: cacheId,
@@ -859,11 +929,11 @@ export class IngestionPipeline {
             },
           });
 
-          for (const ctrlId of controllerNodeIds.slice(0, 4)) {
+          for (const sourceId of edgeSourcesFor(controllerNodeIds, apiGatewayId)) {
             graphEdges.push({
-              id: `edge-${ctrlId}-cache`,
+              id: `edge-${sourceId}-cache`,
               analysisId,
-              sourceId: ctrlId,
+              sourceId,
               targetId: cacheId,
               type: 'READS',
               confidence: 'static',
@@ -976,7 +1046,8 @@ export class IngestionPipeline {
       const allText = filteredFiles.map((f) => f.path + ' ' + (f.content || '')).join('\n');
       const technologies: Technology[] = [];
 
-      if (allText.includes('@nestjs/core') || allText.includes('@Controller') || allText.includes('nest-cli.json')) {
+
+      if (hasDep('@nestjs/core', '@nestjs/common') || hasFile(/nest-cli\.json$/)) {
         technologies.push({
           id: 'tech-nestjs',
           analysisId,
@@ -986,7 +1057,7 @@ export class IngestionPipeline {
           evidence: ['apps/api/src/app.module.ts', '@Controller decorators'],
         });
       }
-      if (allText.includes('fastify')) {
+      if (hasDep('fastify') || /FastifyPluginAsync/.test(allText)) {
         technologies.push({
           id: 'tech-fastify',
           analysisId,
@@ -996,7 +1067,7 @@ export class IngestionPipeline {
           evidence: ['FastifyPluginAsync definitions'],
         });
       }
-      if (allText.includes('express')) {
+      if (hasDep('express')) {
         technologies.push({
           id: 'tech-express',
           analysisId,
@@ -1006,7 +1077,7 @@ export class IngestionPipeline {
           evidence: ['Express routes & router definitions'],
         });
       }
-      if (allText.includes('react') || allText.includes('useState') || allText.includes('next')) {
+      if (hasDep('react', 'next', 'react-dom')) {
         technologies.push({
           id: 'tech-react',
           analysisId,
@@ -1016,7 +1087,7 @@ export class IngestionPipeline {
           evidence: ['React hooks & Next.js App Router'],
         });
       }
-      if (allText.includes('typescript') || filteredFiles.some((f) => f.path.endsWith('.ts'))) {
+      if (hasDep('typescript') || hasFile(/\.tsx?$/)) {
         technologies.push({
           id: 'tech-ts',
           analysisId,
@@ -1026,7 +1097,7 @@ export class IngestionPipeline {
           evidence: [`${filteredFiles.filter((f) => f.path.endsWith('.ts')).length} TypeScript files`],
         });
       }
-      if (allText.includes('prisma') || allText.includes('schema.prisma')) {
+      if (hasDep('prisma', '@prisma/client') || hasFile(/schema\.prisma$/)) {
         technologies.push({
           id: 'tech-prisma',
           analysisId,
@@ -1036,7 +1107,7 @@ export class IngestionPipeline {
           evidence: ['schema.prisma database model definitions'],
         });
       }
-      if (allText.includes('postgres') || allText.includes('pgvector') || allText.includes('pg')) {
+      if (hasDep('pg', 'postgres', 'pg-promise') || /pgvector|postgresql:\/\//.test(allText)) {
         technologies.push({
           id: 'tech-pg',
           analysisId,
@@ -1046,7 +1117,7 @@ export class IngestionPipeline {
           evidence: ['PostgreSQL & relational data persistence'],
         });
       }
-      if (allText.includes('redis') || allText.includes('ioredis') || allText.includes('BullMQ')) {
+      if (hasDep('redis', 'ioredis', 'bullmq', 'bull')) {
         technologies.push({
           id: 'tech-redis',
           analysisId,
@@ -1056,7 +1127,7 @@ export class IngestionPipeline {
           evidence: ['Redis client & BullMQ job queue'],
         });
       }
-      if (allText.includes('turbo.json')) {
+      if (hasDep('turbo') || hasFile(/^turbo\.json$/)) {
         technologies.push({
           id: 'tech-turbo',
           analysisId,

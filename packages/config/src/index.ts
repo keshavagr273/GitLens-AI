@@ -54,10 +54,23 @@ export type AppConfig = z.infer<typeof envSchema>;
 
 export function loadConfig(): AppConfig {
   const result = envSchema.safeParse(process.env);
-  if (!result.success) {
-    console.warn('⚠️ Environment variable warning:', result.error.format());
+  if (result.success) return result.data;
+
+  // Salvage every valid variable instead of discarding the whole environment:
+  // one malformed value must not silently reset DATABASE_URL, PORT and the
+  // rest to their defaults.
+  const salvaged: Record<string, unknown> = { ...process.env };
+  for (const issue of result.error.issues) {
+    const key = String(issue.path[0]);
+    console.warn(`Invalid environment variable ${key}: ${issue.message}. Falling back to its default.`);
+    delete salvaged[key];
   }
-  return result.success ? result.data : envSchema.parse({});
+
+  const retry = envSchema.safeParse(salvaged);
+  if (retry.success) return retry.data;
+
+  console.error('Environment could not be parsed; using built-in defaults.', retry.error.format());
+  return envSchema.parse({});
 }
 
 export const config = loadConfig();

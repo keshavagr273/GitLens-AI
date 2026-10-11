@@ -26,7 +26,8 @@ export const apiRouteEndpoints: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/repositories/:id/trace', async (request, reply) => {
     const { id } = request.params as { id: string };
     const parseResult = traceSchema.safeParse(request.body || {});
-    const routeId = parseResult.success && parseResult.data.routeId ? parseResult.data.routeId : 'route-post-ocr';
+    // No leftover demo default: fall back to the first detected route instead.
+    const routeId = parseResult.success ? parseResult.data.routeId ?? '' : '';
 
     const analysis = await db.getLatestAnalysisForRepo(id);
     if (!analysis) {
@@ -48,7 +49,7 @@ export const apiRouteEndpoints: FastifyPluginAsync = async (fastify) => {
       };
     }
 
-    const route = routes.find((r) => r.id === routeId || r.path === routeId) || routes[0];
+    const route = (routeId ? routes.find((r) => r.id === routeId || r.path === routeId) : undefined) || routes[0];
     const routeFile = files.find((f) => f.id === route.fileId || f.path === route.filePath) || {
       path: route.filePath || 'src/routes.js',
     };

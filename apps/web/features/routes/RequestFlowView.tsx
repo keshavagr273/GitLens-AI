@@ -30,12 +30,16 @@ export function RequestFlowView({
   onOpenSource,
 }: Props) {
   const getMethodBadgeColor = (method: string) => {
-    switch (method) {
+    // GET and POST previously shared one colour, so a read and a write were
+    // indistinguishable in the route bar.
+    switch (method.toUpperCase()) {
       case 'GET':
+        return 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40';
       case 'POST':
         return 'bg-[#e8a33d]/15 text-[#e8a33d] border-[#e8a33d]/30';
       case 'PUT':
-        return 'bg-amber-950/40 text-amber-300 border-amber-800/40';
+      case 'PATCH':
+        return 'bg-sky-950/40 text-sky-300 border-sky-800/40';
       case 'DELETE':
         return 'bg-rose-950/40 text-rose-300 border-rose-800/40';
       default:
@@ -60,50 +64,29 @@ export function RequestFlowView({
               <Layers className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono px-2 py-0.2 rounded-[2px] border border-[#e8a33d]/30 bg-[#e8a33d]/10 text-[#e8a33d] font-bold uppercase">
-                  Engine Lifecycle
-                </span>
-                <h3 className="font-serif text-lg font-normal text-[#f5f3ee]">Component Rendering & Reconciliation Pipeline</h3>
-              </div>
-              <p className="text-xs text-[#a09f9c] mt-1 font-normal">
-                This repository is a client library / framework engine with 0 HTTP REST routes. Below is the deterministic runtime execution trace.
+              <h3 className="font-serif text-lg font-normal text-[#f5f3ee]">No HTTP routes detected</h3>
+              <p className="text-xs text-[#a09f9c] mt-1">
+                The analyzer found no Express, Fastify, NestJS or Next.js route declarations in this repository.
               </p>
             </div>
           </div>
 
-          <div className="space-y-3 font-mono text-xs">
-            <div className="p-3.5 rounded-[4px] bg-[#0a0a0b] border border-white/5 flex items-start gap-3">
-              <div className="h-6 w-6 rounded-[2px] bg-[#141312] text-[#e8a33d] border border-[#e8a33d]/30 flex items-center justify-center font-mono font-bold text-xs shrink-0">1</div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-xs text-[#f5f3ee]">JSX & Element Construction</h4>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-[2px] bg-[#141312] text-[#e8a33d] border border-[#e8a33d]/20">packages/react</span>
-                </div>
-                <p className="text-[11px] text-[#a09f9c] mt-1 font-sans">React.createElement / JSX Runtime instantiates lightweight Virtual DOM element descriptors.</p>
+          <div className="space-y-3 text-xs text-[#a09f9c]">
+            <p className="font-sans leading-relaxed">
+              This usually means the repository is a library, CLI, or framework rather than a running HTTP
+              service &mdash; such code is exercised through its public API instead of through network routes.
+              Request Flow has nothing to trace here; the{' '}
+              <span className="text-[#e8a33d] font-mono">Architecture</span> and{' '}
+              <span className="text-[#e8a33d] font-mono">Dependencies</span> views describe this codebase instead.
+            </p>
+            <div className="p-3.5 rounded-[4px] bg-[#0a0a0b] border border-white/5 font-mono text-[11px] space-y-1.5">
+              <div className="text-[10px] uppercase tracking-wider text-[#6b6a67] mb-1">
+                Route patterns the analyzer looks for
               </div>
-            </div>
-
-            <div className="p-3.5 rounded-[4px] bg-[#0a0a0b] border border-white/5 flex items-start gap-3">
-              <div className="h-6 w-6 rounded-[2px] bg-[#141312] text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-mono font-bold text-xs shrink-0">2</div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-xs text-[#f5f3ee]">Fiber Concurrent WorkLoop & Diffing</h4>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-[2px] bg-[#141312] text-cyan-300 border border-cyan-500/20">packages/react-reconciler</span>
-                </div>
-                <p className="text-[11px] text-[#a09f9c] mt-1 font-sans">Double-buffered Fiber tree traversal with interruptible time-slicing and Lanes priority queue resolution.</p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-[4px] bg-[#0a0a0b] border border-white/5 flex items-start gap-3">
-              <div className="h-6 w-6 rounded-[2px] bg-[#141312] text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-mono font-bold text-xs shrink-0">3</div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-xs text-[#f5f3ee]">Priority Task Yielding & Frame Slicing</h4>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-[2px] bg-[#141312] text-emerald-300 border border-emerald-500/20">packages/scheduler</span>
-                </div>
-                <p className="text-[11px] text-[#a09f9c] mt-1 font-sans">Cooperative min-heap scheduler yields back to browser main thread via MessageChannel macro-tasks.</p>
-              </div>
+              <div>app.get(&apos;/path&apos;, handler) &nbsp;&middot;&nbsp; router.post(...)</div>
+              <div>@Controller() / @Get() decorators (NestJS)</div>
+              <div>fastify.route({'{'} method, url {'}'})</div>
+              <div>app/**/route.ts exports (Next.js App Router)</div>
             </div>
           </div>
         </div>

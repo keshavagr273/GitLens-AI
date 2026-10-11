@@ -41,7 +41,7 @@ export const repositoryRoutes: FastifyPluginAsync = async (fastify) => {
       const analysis = await db.createAnalysis(repository.id, 'HEAD');
 
       // Kick off ingestion run immediately
-      ingestionPipeline.run(repository.id, analysis.id).catch((err: any) => {
+      ingestionPipeline.runOnce(repository.id, analysis.id).catch((err: any) => {
         console.error('Background ingestion error:', err);
       });
 

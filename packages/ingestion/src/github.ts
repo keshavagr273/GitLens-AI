@@ -1,6 +1,9 @@
 import { sleep } from '@gitlens/utils';
 import { config } from '@gitlens/config';
 
+const REQUEST_TIMEOUT_MS = 20_000;
+const RATE_LIMIT_MAX_WAIT_MS = 15_000;
+
 export interface GitHubRepoMetadata {
   owner: string;
   name: string;
@@ -30,10 +33,31 @@ export interface GitTreeResponse {
 export class GitHubClient {
   private token?: string;
   private apiBase: string;
+  /**
+   * Set once the configured token is proven invalid (401 / 403 "Bad credentials").
+   * GitHub serves public repositories anonymously at a lower rate limit, so a dead
+   * token must never be the reason an analysis falls back to synthetic data.
+   */
+  private tokenRejected = false;
 
   constructor(token?: string, apiBase?: string) {
     this.token = token || config.GITHUB_TOKEN || process.env.GITHUB_TOKEN || undefined;
     this.apiBase = (apiBase || config.GITHUB_API_URL || process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/$/, '');
+  }
+
+  /** True when a usable (not yet rejected) token is configured. */
+  private hasUsableToken(): boolean {
+    return !this.tokenRejected && !!this.token && this.token.trim().length > 0;
+  }
+
+  /** Marks the configured token as unusable and logs once. */
+  private rejectToken(context: string) {
+    if (!this.tokenRejected) {
+      this.tokenRejected = true;
+      console.warn(
+        `GITHUB_TOKEN rejected by GitHub (${context}). Continuing anonymously at the unauthenticated rate limit (60 req/h). Replace GITHUB_TOKEN to restore 5000 req/h.`
+      );
+    }
   }
 
   private getHeaders(): Record<string, string> {
@@ -41,45 +65,115 @@ export class GitHubClient {
       Accept: 'application/vnd.github+json',
       'User-Agent': 'GitLens-AI-Ingestion-Engine/1.0',
     };
-    if (this.token && this.token.trim().length > 0) {
-      headers.Authorization = `Bearer ${this.token.trim()}`;
+    if (this.hasUsableToken()) {
+      headers.Authorization = `Bearer ${this.token!.trim()}`;
     }
     return headers;
   }
 
   private async request<T>(endpoint: string, retries = 2): Promise<T> {
     const url = `${this.apiBase}${endpoint}`;
+
+    let response: Response;
     try {
-      const response = await fetch(url, { headers: this.getHeaders() });
-
-      // Check rate limits
-      const remaining = response.headers.get('x-ratelimit-remaining');
-      const resetTime = response.headers.get('x-ratelimit-reset');
-
-      if (response.status === 403 || response.status === 429) {
-        if (resetTime && retries > 0) {
-          const waitMs = Math.max(1000, Number(resetTime) * 1000 - Date.now());
-          if (waitMs < 10000) {
-            console.warn(`⏳ GitHub rate limit hit. Backing off for ${waitMs}ms...`);
-            await sleep(waitMs);
-            return this.request<T>(endpoint, retries - 1);
-          }
-        }
-        throw new Error(`GitHub API rate limit reached (Remaining: ${remaining || '0'}).`);
-      }
-
-      if (!response.ok) {
-        const errBody = await response.json().catch(() => ({}));
-        throw new Error((errBody as any).message || `GitHub API request failed with status ${response.status}`);
-      }
-
-      return (await response.json()) as T;
+      response = await fetch(url, {
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
     } catch (err: any) {
-      if (retries > 0 && !err.message?.includes('rate limit')) {
+      // Network-level failure (DNS, TLS, timeout) - worth retrying.
+      if (retries > 0) {
         await sleep(1000);
         return this.request<T>(endpoint, retries - 1);
       }
-      throw err;
+      throw new Error(`GitHub API unreachable: ${err.message || err}`);
+    }
+
+    const remaining = response.headers.get('x-ratelimit-remaining');
+    const resetTime = response.headers.get('x-ratelimit-reset');
+
+    // A bad/expired token must degrade to anonymous access rather than failing
+    // the whole analysis - public repositories are readable without auth.
+    if (response.status === 401 && this.hasUsableToken()) {
+      this.rejectToken('401 Bad credentials');
+      return this.request<T>(endpoint, retries);
+    }
+
+    if (response.status === 403 || response.status === 429) {
+      const body = await response.text().catch(() => '');
+      // 403 with a live token can also mean the token itself is bad/revoked.
+      if (this.hasUsableToken() && /bad credentials|requires authentication/i.test(body)) {
+        this.rejectToken('403 Bad credentials');
+        return this.request<T>(endpoint, retries);
+      }
+
+      // Genuine rate limiting: back off only if the window reopens soon.
+      if (remaining === '0' && resetTime && retries > 0) {
+        const waitMs = Math.max(1000, Number(resetTime) * 1000 - Date.now());
+        if (waitMs < RATE_LIMIT_MAX_WAIT_MS) {
+          console.warn(`GitHub rate limit hit. Backing off for ${Math.round(waitMs / 1000)}s...`);
+          await sleep(waitMs);
+          return this.request<T>(endpoint, retries - 1);
+        }
+      }
+      throw new Error(
+        `GitHub API rate limit reached (remaining: ${remaining ?? '0'}).` +
+          (this.hasUsableToken() ? '' : ' Set a valid GITHUB_TOKEN to raise the limit to 5000 requests/hour.')
+      );
+    }
+
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}));
+      const message = (errBody as any).message || `GitHub API request failed with status ${response.status}`;
+      // 404/410 are definitive answers - retrying only wastes rate limit.
+      if (response.status >= 500 && retries > 0) {
+        await sleep(1000);
+        return this.request<T>(endpoint, retries - 1);
+      }
+      throw new Error(message);
+    }
+
+    return (await response.json()) as T;
+  }
+
+  /**
+   * Probes GitHub reachability and reports which credential mode is in effect.
+   * Used by the readiness endpoint so a revoked token surfaces as a warning
+   * instead of as an analysis full of missing files.
+   */
+  async checkAccess(): Promise<{ ok: boolean; authenticated: boolean; detail: string; rateRemaining?: number }> {
+    try {
+      const res = await fetch(`${this.apiBase}/rate_limit`, {
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (res.status === 401) {
+        this.rejectToken('401 during readiness probe');
+        return {
+          ok: false,
+          authenticated: false,
+          detail: 'GITHUB_TOKEN is invalid or revoked. Public repositories still work anonymously at 60 requests/hour.',
+        };
+      }
+
+      if (!res.ok) {
+        return { ok: false, authenticated: this.hasUsableToken(), detail: `GitHub returned HTTP ${res.status}.` };
+      }
+
+      const body = (await res.json()) as any;
+      const remaining = body?.resources?.core?.remaining ?? body?.rate?.remaining;
+      const authenticated = this.hasUsableToken();
+      return {
+        ok: true,
+        authenticated,
+        rateRemaining: typeof remaining === 'number' ? remaining : undefined,
+        detail: authenticated
+          ? `Authenticated. ${remaining} core requests remaining.`
+          : `Anonymous access (60 req/h). ${remaining} requests remaining. Set GITHUB_TOKEN to raise the limit.`,
+      };
+    } catch (err: any) {
+      return { ok: false, authenticated: false, detail: `GitHub unreachable: ${err.message || err}` };
     }
   }
 
@@ -97,17 +191,13 @@ export class GitHubClient {
         primaryLanguage: data.language || 'TypeScript',
         commitSha: branchData.commit.sha,
       };
-    } catch (err) {
-      console.warn(`GitHub metadata fetch fallback for ${owner}/${repo}:`, (err as any).message);
-      return {
-        owner,
-        name: repo,
-        defaultBranch: 'main',
-        description: `Repository ${owner}/${repo} analyzed via GitLens AI`,
-        sizeKb: 14200,
-        primaryLanguage: 'TypeScript',
-        commitSha: '7a8f9c2d1e0b',
-      };
+    } catch (err: any) {
+      // Never fabricate metadata: a wrong commit SHA silently produces an
+      // analysis of a repository that does not exist.
+      throw new Error(
+        `Unable to read ${owner}/${repo} from GitHub: ${err.message || err}. ` +
+          'Check that the repository exists and is public, or configure a valid GITHUB_TOKEN.'
+      );
     }
   }
 
@@ -123,9 +213,12 @@ export class GitHubClient {
       }
 
       return response.tree.filter((entry) => entry.type === 'blob');
-    } catch (err) {
-      console.warn(`GitHub tree fetch fallback for ${owner}/${repo}:`, (err as any).message);
-      return this.generateFallbackTree(owner, repo);
+    } catch (err: any) {
+      // Returning a synthetic file list here is what made failed fetches look
+      // like successful analyses of an unrelated codebase.
+      throw new Error(
+        `Unable to list files for ${owner}/${repo}: ${err.message || err}.`
+      );
     }
   }
 
@@ -175,11 +268,15 @@ export class GitHubClient {
       const headers: Record<string, string> = {
         'User-Agent': 'GitLens-AI-Ingestion-Engine/1.0',
       };
-      if (this.token && this.token.trim().length > 0) {
-        headers.Authorization = `Bearer ${this.token.trim()}`;
+      if (this.hasUsableToken()) {
+        headers.Authorization = `Bearer ${this.token!.trim()}`;
       }
 
-      const res = await fetch(rawUrl, { headers });
+      const res = await fetch(rawUrl, { headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      if (res.status === 401 && this.hasUsableToken()) {
+        this.rejectToken('401 on raw content');
+        return this.fetchBlobContent(owner, repo, branch, filePath);
+      }
       if (res.ok) {
         return await res.text();
       }
@@ -227,25 +324,6 @@ export class GitHubClient {
     return results;
   }
 
-  // Fallback tree for offline / mock testing
-  private generateFallbackTree(owner: string, repo: string): GitTreeEntry[] {
-    return [
-      { path: 'src/server.ts', mode: '100644', type: 'blob', sha: 'blob-1', size: 1240 },
-      { path: 'src/routes/auth.routes.ts', mode: '100644', type: 'blob', sha: 'blob-2', size: 1680 },
-      { path: 'src/routes/order.routes.ts', mode: '100644', type: 'blob', sha: 'blob-3', size: 1920 },
-      { path: 'src/controllers/auth.controller.ts', mode: '100644', type: 'blob', sha: 'blob-4', size: 1540 },
-      { path: 'src/controllers/order.controller.ts', mode: '100644', type: 'blob', sha: 'blob-5', size: 2400 },
-      { path: 'src/services/auth.service.ts', mode: '100644', type: 'blob', sha: 'blob-6', size: 2100 },
-      { path: 'src/services/order.service.ts', mode: '100644', type: 'blob', sha: 'blob-7', size: 2800 },
-      { path: 'src/repositories/order.repository.ts', mode: '100644', type: 'blob', sha: 'blob-8', size: 1800 },
-      { path: 'src/middleware/jwt.middleware.ts', mode: '100644', type: 'blob', sha: 'blob-9', size: 980 },
-      { path: 'src/clients/payment.client.ts', mode: '100644', type: 'blob', sha: 'blob-10', size: 1350 },
-      { path: 'src/queues/redis.queue.ts', mode: '100644', type: 'blob', sha: 'blob-11', size: 1120 },
-      { path: 'prisma/schema.prisma', mode: '100644', type: 'blob', sha: 'blob-12', size: 850 },
-      { path: 'package.json', mode: '100644', type: 'blob', sha: 'blob-13', size: 620 },
-      { path: 'tsconfig.json', mode: '100644', type: 'blob', sha: 'blob-14', size: 480 },
-    ];
-  }
 }
 
 export const githubClient = new GitHubClient();
